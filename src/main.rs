@@ -7,6 +7,8 @@ use log4rs::{
     encode::pattern::PatternEncoder,
     Config,
 };
+use std::fs;
+use std::path::PathBuf;
 
 const DEFAULT_PORT: u16 = 2020;
 
@@ -30,6 +32,12 @@ async fn main() -> AppResult<()> {
         .build(Root::builder().appender("logfile").build(LevelFilter::Info))?;
 
     log4rs::init_config(config)?;
+
+    // Create images folder to store mazes if it doesn't exist
+    let mut images_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    images_dir.push("images");
+
+    fs::create_dir_all(&images_dir)?;
 
     let port = Args::parse().port.unwrap_or(DEFAULT_PORT);
     let mut game_server = AppServer::new(port);
