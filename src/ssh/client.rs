@@ -45,7 +45,7 @@ impl AppClient {
     fn channel_mut(&mut self, id: ChannelId) -> AppResult<&mut AppChannel> {
         self.channels
             .get_mut(&id)
-            .with_context(|| format!("unknown channel: {}", id))
+            .with_context(|| format!("unknown channel: {id}"))
     }
 
     pub async fn get_tui(
@@ -127,7 +127,7 @@ impl server::Handler for AppClient {
         if self.channels.remove(&channel).is_some() {
             Ok(())
         } else {
-            Err(anyhow!("channel `{}` has been already closed", channel))
+            Err(anyhow!("channel `{channel}` has been already closed"))
         }
     }
 

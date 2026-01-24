@@ -22,10 +22,10 @@ use tokio::{select, time};
 use tokio_util::sync::CancellationToken;
 
 fn save_keys(signing_key: &russh::keys::PrivateKey) -> AppResult<()> {
-    let file = File::create::<&str>("./keys".into())?;
+    let file = File::create::<&str>("./keys")?;
     assert!(file.metadata()?.is_file());
     let mut buffer = std::io::BufWriter::new(file);
-    buffer.write(&signing_key.to_bytes()?)?;
+    let _ = buffer.write(&signing_key.to_bytes()?)?;
     println!("Created new keypair for SSH server.");
     Ok(())
 }
@@ -154,7 +154,7 @@ impl AppServer {
                         for (&player_id, tui) in tuis.iter_mut() {
                             tui.draw(&game).expect("Can't draw tui");
                             if let Err(e) = tui.push_data().await {
-                                println!("Error pushing to tui: {}", e);
+                                println!("Error pushing to tui: {e}");
                                 let _ = tui.exit().await;
                                 to_remove.push(player_id);
                             } else if let Some(last_move) = last_moves.get(&player_id) {
@@ -231,8 +231,6 @@ impl server::Server for AppServer {
             .as_ref()
             .expect("Tui sender should have been initialized")
             .clone();
-        let client = AppClient::new(self.shutdown.clone(), client_sender, terminal_event_sender);
-
-        client
+        AppClient::new(self.shutdown.clone(), client_sender, terminal_event_sender)
     }
 }

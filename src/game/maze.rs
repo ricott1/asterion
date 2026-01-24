@@ -84,7 +84,7 @@ impl Maze {
         ) / 2
             * 2;
         self.exit = {
-            let max_x = self.image.width() as usize - Self::MARGIN_SIZE as usize - 1;
+            let max_x = self.image.width() as usize - Self::MARGIN_SIZE - 1;
             let mut x = max_x;
 
             loop {
@@ -210,10 +210,10 @@ impl Maze {
     }
 
     pub fn new(id: usize) -> Self {
-        let random_seed = ChaCha8Rng::from_os_rng().random();
-        let rng = ChaCha8Rng::seed_from_u64(random_seed);
+        let mut rng = ChaCha8Rng::from_os_rng();
+        let random_seed = rng.random();
 
-        println!("New maze {}", random_seed);
+        println!("New maze {random_seed}");
         Self {
             id,
             random_seed,
@@ -234,12 +234,14 @@ impl Maze {
 
     pub fn build(mut self) -> AppResult<Self> {
         if self.width == 0 {
-            self.width = (&mut self.rng)
+            self.width = self
+                .rng
                 .random_range(16 + 2 * (self.id / 4)..=(20 + 2 * (self.id / 2)).min(32));
         }
 
         if self.height == 0 {
-            self.height = (&mut self.rng)
+            self.height = self
+                .rng
                 .random_range(4 + 2 * (self.id / 4)..=(6 + 2 * (self.id / 2)).min(20));
         }
 
@@ -394,40 +396,40 @@ impl Maze {
                             let (next_x, next_y) = line[index + 1];
 
                             // 4 cases
-                            if next_x == lx + 1 && next_y + 1 == ly {
-                                if self.is_valid_position((next_x, next_y))
-                                    && !self.is_valid_position((lx + 1, ly))
-                                    && !self.is_valid_position((lx, ly - 1))
-                                {
-                                    break 'inner;
-                                }
+                            if next_x == lx + 1
+                                && next_y + 1 == ly
+                                && self.is_valid_position((next_x, next_y))
+                                && !self.is_valid_position((lx + 1, ly))
+                                && !self.is_valid_position((lx, ly - 1))
+                            {
+                                break 'inner;
                             }
 
-                            if next_x == lx + 1 && next_y == ly + 1 {
-                                if self.is_valid_position((next_x, next_y))
-                                    && !self.is_valid_position((lx + 1, ly))
-                                    && !self.is_valid_position((lx, ly + 1))
-                                {
-                                    break 'inner;
-                                }
+                            if next_x == lx + 1
+                                && next_y == ly + 1
+                                && self.is_valid_position((next_x, next_y))
+                                && !self.is_valid_position((lx + 1, ly))
+                                && !self.is_valid_position((lx, ly + 1))
+                            {
+                                break 'inner;
                             }
 
-                            if next_x + 1 == lx && next_y + 1 == ly {
-                                if self.is_valid_position((next_x, next_y))
-                                    && !self.is_valid_position((lx - 1, ly))
-                                    && !self.is_valid_position((lx, ly - 1))
-                                {
-                                    break 'inner;
-                                }
+                            if next_x + 1 == lx
+                                && next_y + 1 == ly
+                                && self.is_valid_position((next_x, next_y))
+                                && !self.is_valid_position((lx - 1, ly))
+                                && !self.is_valid_position((lx, ly - 1))
+                            {
+                                break 'inner;
                             }
 
-                            if next_x + 1 == lx && next_y == ly + 1 {
-                                if self.is_valid_position((next_x, next_y))
-                                    && !self.is_valid_position((lx - 1, ly))
-                                    && !self.is_valid_position((lx, ly + 1))
-                                {
-                                    break 'inner;
-                                }
+                            if next_x + 1 == lx
+                                && next_y == ly + 1
+                                && self.is_valid_position((next_x, next_y))
+                                && !self.is_valid_position((lx - 1, ly))
+                                && !self.is_valid_position((lx, ly + 1))
+                            {
+                                break 'inner;
                             }
                         }
                     }
@@ -507,12 +509,12 @@ impl Maze {
     }
 
     pub fn is_valid_position(&self, position: Position) -> bool {
-        self.valid_positions.get(&position).is_some()
+        self.valid_positions.contains(&position)
     }
 
     pub fn is_valid_minotaur_position(&self, position: Position) -> bool {
         let entrances = self.entrance_positions();
-        self.valid_positions.get(&position).is_some()
+        self.valid_positions.contains(&position)
             && entrances.iter().all(|p| p.distance(position) > 6.0)
     }
 

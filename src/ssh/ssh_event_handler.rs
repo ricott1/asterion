@@ -38,46 +38,44 @@ impl SSHEventHandler {
         client_shutdown: CancellationToken,
         server_shutdown: CancellationToken,
     ) {
-        {
-            tokio::task::spawn(async move {
-                loop {
-                    select! {
-                        Some(stdin) = stdin.recv() => {
-                            if let Some(event) = convert_data_to_crossterm_event(&stdin) {
-                                match event {
-                                    CrosstermEvent::Key(key_event) => {
-                                        if key_event.kind == KeyEventKind::Press {
-                                            terminal_event_sender.send((player_id,TerminalEvent::Key{key_event})).await.expect("Cannot send over channel");
+        tokio::task::spawn(async move {
+            loop {
+                select! {
+                    Some(stdin) = stdin.recv() => {
+                        if let Some(event) = convert_data_to_crossterm_event(&stdin) {
+                            match event {
+                                CrosstermEvent::Key(key_event) => {
+                                    if key_event.kind == KeyEventKind::Press {
+                                        terminal_event_sender.send((player_id,TerminalEvent::Key{key_event})).await.expect("Cannot send over channel");
 
-                                            if key_event.code == KeyCode::Esc || key_event.code == KeyCode::Char('q') {
-                                                client_shutdown.cancel();
-                                                break;
-                                            }
-
+                                        if key_event.code == KeyCode::Esc || key_event.code == KeyCode::Char('q') {
+                                            client_shutdown.cancel();
+                                            break;
                                         }
-                                    }
-                                    CrosstermEvent::Resize(w, h) =>
-                                    {
-                                        terminal_event_sender.send((player_id, TerminalEvent::Resize{width:w, height:h})).await.expect("Cannot send over channel");
-                                    }
-                                    _ => {}
-                                };
-                            }
-                        }
-                        _ = client_shutdown.cancelled() => {
-                                println!("Shutting down client.");
-                                break;
-                        },
 
-                        _ = server_shutdown.cancelled() => {
-                            println!("Shutting down from server.");
+                                    }
+                                }
+                                CrosstermEvent::Resize(w, h) =>
+                                {
+                                    terminal_event_sender.send((player_id, TerminalEvent::Resize{width:w, height:h})).await.expect("Cannot send over channel");
+                                }
+                                _ => {}
+                            };
+                        }
+                    }
+                    _ = client_shutdown.cancelled() => {
+                            println!("Shutting down client.");
                             break;
                     },
 
+                    _ = server_shutdown.cancelled() => {
+                        println!("Shutting down from server.");
+                        break;
+                },
 
-                    }
+
                 }
-            })
-        };
+            }
+        });
     }
 }

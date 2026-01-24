@@ -26,7 +26,7 @@ pub trait Entity {
             };
         }
 
-        return View::Full;
+        View::Full
     }
     fn speed(&self) -> u64;
     fn movement_recovery_duration(&self) -> Duration {

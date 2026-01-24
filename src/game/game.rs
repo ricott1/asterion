@@ -182,7 +182,7 @@ impl Game {
     pub fn alarm_level(&self, hero_id: &PlayerId) -> (AlarmLevel, usize) {
         if let Some(hero) = self.get_hero(hero_id) {
             let maze_minotaurs = &self.minotaur_rooms[hero.maze_id()];
-            if maze_minotaurs.len() > 0 {
+            if !maze_minotaurs.is_empty() {
                 let mut alarm_level = AlarmLevel::NotChasing;
                 let mut min_distance = usize::MAX;
 
@@ -243,7 +243,7 @@ impl Game {
     }
 
     pub fn remove_player(&mut self, player_id: &PlayerId) {
-        self.heros.remove(&player_id);
+        self.heros.remove(player_id);
     }
 
     pub fn get_hero(&self, id: &PlayerId) -> Option<&Hero> {
@@ -341,14 +341,11 @@ impl Game {
 
             for hero_id in catched_heros.iter() {
                 if let Some(hero) = self.heros.get_mut(hero_id) {
-                    match hero.state {
-                        HeroState::InMaze { instant } => {
-                            hero.state = HeroState::Dead {
-                                duration: instant.elapsed(),
-                                instant: Instant::now(),
-                            }
+                    if let HeroState::InMaze { instant } = hero.state {
+                        hero.state = HeroState::Dead {
+                            duration: instant.elapsed(),
+                            instant: Instant::now(),
                         }
-                        _ => {}
                     }
                 }
             }
@@ -378,7 +375,7 @@ impl Game {
         let hero = if let Some(hero) = self.get_hero(&player_id) {
             hero
         } else {
-            return Err(anyhow!("Missing hero {}", player_id));
+            return Err(anyhow!("Missing hero {player_id}"));
         };
 
         let maze = &self.mazes[hero.maze_id()];
@@ -477,14 +474,13 @@ impl Game {
 
             // Add other heros position
             for (p_id, any_hero) in self.heros.iter() {
-                if *p_id != player_id {
-                    if any_hero.maze_id() == hero.maze_id() {
+                if *p_id != player_id
+                    && any_hero.maze_id() == hero.maze_id() {
                         let (ax, ay) = any_hero.position();
                         if visible_positions.contains(&(ax, ay)) {
                             player_image.put_pixel(ax as u32, ay as u32, GameColors::OTHER_HERO);
                         }
                     }
-                }
             }
 
             // Add minotaurs position
@@ -511,7 +507,7 @@ impl Game {
 
             return Ok(player_image);
         }
-        return Err(anyhow!("No hero with id {}", player_id));
+        Err(anyhow!("No hero with id {player_id}"))
     }
 
     pub fn handle_command(&mut self, command: &GameCommand, hero_id: PlayerId) {

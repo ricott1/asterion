@@ -181,7 +181,7 @@ impl Hero {
         let past_visible_positions = self
             .past_visible_positions
             .entry(self.maze_id)
-            .or_insert(HashMap::new());
+            .or_default();
 
         for &position in visible_positions.iter() {
             past_visible_positions.insert(position, Instant::now());

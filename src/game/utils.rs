@@ -41,7 +41,7 @@ impl GameColors {
     pub const POWER_UP: Rgba<u8> = Rgba([255, 180, 244, 255]);
 }
 
-pub const MINOTAUR_NAMES: [&'static str; 7] = [
+pub const MINOTAUR_NAMES: [&str; 7] = [
     "Ἀστερίων",
     "Μίνως",
     "Σαρπηδών",

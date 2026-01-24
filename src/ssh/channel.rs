@@ -55,10 +55,11 @@ impl SSHWriterProxy {
 
         let data_length = self.sink.len();
 
-        if let Err(_) = self
+        if self
             .handle
             .data(self.channel_id, self.sink.clone().into())
             .await
+            .is_err()
         {
             let _ = self.handle.close(self.channel_id).await;
         }
@@ -100,7 +101,7 @@ impl AppChannel {
     }
 
     pub async fn pty_request(&mut self) -> AppResult<Receiver<Vec<u8>>> {
-        let AppChannelState::AwaitingPty { .. } = &mut self.state else {
+        let AppChannelState::AwaitingPty = &mut self.state else {
             return Err(anyhow!("pty has been already allocated"));
         };
 

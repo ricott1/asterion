@@ -22,14 +22,14 @@ pub use view::View;
 pub type Position = (usize, usize);
 
 pub trait IntoDirection {
-    fn into_direction(&self, direction: &Direction) -> Self;
+    fn into_direction(self, direction: &Direction) -> Self;
     fn distance(&self, other: Position) -> f64;
     fn distance_squared(&self, other: Position) -> usize;
 }
 
 impl IntoDirection for Position {
-    fn into_direction(&self, direction: &Direction) -> Self {
-        let &(x, y) = self;
+    fn into_direction(self, direction: &Direction) -> Self {
+        let (x, y) = self;
         let (new_x, new_y) = match direction {
             Direction::North => (x, y.saturating_sub(1)),
             Direction::South => (x, y + 1),

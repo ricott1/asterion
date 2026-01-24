@@ -96,13 +96,12 @@ impl Minotaur {
                             (y as isize + d.as_offset().1).max(0) as usize,
                         );
                         new_position.distance(hero.position()) < current_distance
-                    })
-                    .map(|d| *d)
+                    }).copied()
                     .collect_vec();
             }
         }
 
-        if available_directions.len() > 0 && rng.random_bool(self.aggression) {
+        if !available_directions.is_empty() && rng.random_bool(self.aggression) {
             // Pick a random available direction
             let direction = available_directions.iter().choose(rng).unwrap();
             let new_position = (

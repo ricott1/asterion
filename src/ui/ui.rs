@@ -16,10 +16,10 @@ use ratatui::{
 };
 use std::time::{Duration, Instant};
 
-const MINORADAR: [&'static str; 8] = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
+const MINORADAR: [&str; 8] = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"];
 const NAME_LENGTH: usize = 13;
 
-const TITLE: [&'static str; 29] = [
+const TITLE: [&str; 29] = [
     "     ██▓    ▄▄▄          ▄████▄   ▄▄▄        ██████  ▄▄▄            ",
     "     ▓██▒   ▒████▄       ▒██▀  ▀  ▒████▄    ▒██    ▒ ▒████▄         ",
     "     ▒██░   ▒██  ▀█▄     ▒▓█      ▒██  ▀█▄  ░ ▓██▄   ▒██  ▀█▄       ",
@@ -89,13 +89,13 @@ fn format_duration(duration: &Duration) -> String {
     let minutes = (duration.as_secs() / 60) % 60;
     let hours = (duration.as_secs() / 60) / 60;
     let formatted_duration = if hours > 0 {
-        format!("{}h{:02}m{:02}s", hours, minutes, seconds)
+        format!("{hours}h{minutes:02}m{seconds:02}s")
     } else if minutes > 0 {
-        format!("{:02}m{:02}s", minutes, seconds)
+        format!("{minutes:02}m{seconds:02}s")
     } else {
-        format!("{:02}s", seconds)
+        format!("{seconds:02}s")
     };
-    format!("{}", formatted_duration)
+    formatted_duration.to_string()
 }
 
 fn render_header(frame: &mut Frame, game: &Game, hero: &Hero, area: Rect) -> AppResult<()> {
@@ -124,7 +124,7 @@ fn render_header(frame: &mut Frame, game: &Game, hero: &Hero, area: Rect) -> App
     let num_minotaurs = game.minotaurs_in_maze(hero.maze_id());
     let (alarm_level, min_distance_squared) = game.alarm_level(&hero.id());
     let radar_power = 16 * 16 / min_distance_squared.max(1);
-    let minoradar: String = MINORADAR.iter().take(radar_power).map(|s| *s).collect();
+    let minoradar: String = MINORADAR.iter().take(radar_power).copied().collect();
 
     let mut line = vec![
         Span::raw(format!(
@@ -133,7 +133,7 @@ fn render_header(frame: &mut Frame, game: &Game, hero: &Hero, area: Rect) -> App
             if num_minotaurs == 1 { "" } else { "s" }
         )),
         Span::styled(
-            format!("{:8} ", minoradar),
+            format!("{minoradar:8} "),
             Style::new().fg(alarm_level.rgba().to_color()),
         ),
     ];
@@ -149,7 +149,7 @@ fn render_header(frame: &mut Frame, game: &Game, hero: &Hero, area: Rect) -> App
     lines.push(Line::from(Span::raw(format!(
         "Power up {}collected",
         if let Some(power_up) = hero.power_up_collected_in_maze() {
-            format!("({}) ", power_up)
+            format!("({power_up}) ")
         } else {
             "not ".to_string()
         }
@@ -197,9 +197,9 @@ fn render_sidebar(frame: &mut Frame, game: &Game, hero: &Hero, area: Rect) -> Ap
             Span::raw(format!(" {:12}", "Power up")),
         ]),
         Line::from(""),
-        Line::from(format!("Run from the minotaurs")),
-        Line::from(format!("and try to get as far")),
-        Line::from(format!("as possible.")),
+        Line::from("Run from the minotaurs".to_string()),
+        Line::from("and try to get as far".to_string()),
+        Line::from("as possible.".to_string()),
     ];
 
     frame.render_widget(
@@ -217,7 +217,7 @@ fn render_sidebar(frame: &mut Frame, game: &Game, hero: &Hero, area: Rect) -> Ap
                 format_duration(duration)
             };
             Line::from(Span::styled(
-                format!("{:<NAME_LENGTH$} {}", name, record),
+                format!("{name:<NAME_LENGTH$} {record}"),
                 if game.get_hero(id).is_some() {
                     if *id == hero.id() {
                         Style::new().fg(GameColors::HERO.to_color())
@@ -296,7 +296,7 @@ pub fn render(
     let hero = if let Some(hero) = game.get_hero(&player_id) {
         hero
     } else {
-        return Err(anyhow!("Missing hero {}", player_id));
+        return Err(anyhow!("Missing hero {player_id}"));
     };
 
     let h_split =
@@ -333,7 +333,7 @@ pub fn render(
 
         frame.render_widget(
             Paragraph::new(vec![
-                Line::from(format!("{}", hero.name())),
+                Line::from(hero.name().to_string()),
                 Line::from(format!("died while exploring room {}", hero.maze_id() + 1)),
             ])
             .centered()
@@ -353,8 +353,8 @@ pub fn render(
 
         frame.render_widget(
             Paragraph::new(vec![
-                Line::from(format!("{}", hero.name())),
-                Line::from(format!("exited the labyrinth in")),
+                Line::from(hero.name().to_string()),
+                Line::from("exited the labyrinth in".to_string()),
                 Line::from(format_duration(duration)),
             ])
             .centered()

@@ -103,7 +103,7 @@ pub trait RataColor {
 impl RataColor for Rgba<u8> {
     fn to_color(&self) -> Color {
         let [r, g, b, a] = self.0;
-        let alpha = (a as f32 / 255.0) as f32;
+        let alpha = a as f32 / 255.0;
         let r = (r as f32 * alpha) as u8;
         let g = (g as f32 * alpha) as u8;
         let b = (b as f32 * alpha) as u8;
