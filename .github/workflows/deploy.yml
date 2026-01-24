@@ -27,7 +27,7 @@ jobs:
     - name: Build archive
       shell: bash
       run: |
-        binary_name="minotaur"
+        binary_name="asterion"
 
         dirname="$binary_name-${{ env.VERSION }}-x86_64-unknown-linux-gnu"
         mkdir "$dirname"
