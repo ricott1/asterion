@@ -14,7 +14,9 @@ categories = ["games"]
 [profile.release]
 strip = true
 opt-level = 3
-lto = true
+lto = "fat"
+codegen-units = 1
+panic = "abort"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
