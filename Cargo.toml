@@ -6,8 +6,8 @@ authors = ["Alessandro Ricottone <ricott2@gmail.com>"]
 license = "GPL-3.0-or-later"
 description = "Find your way out of a dangeroussh labyrinth"
 readme = "README.md"
-homepage = "https://github.com/ricott1/minotaur"
-repository = "https://github.com/ricott1/minotaur"
+homepage = "https://github.com/ricott1/asterion"
+repository = "https://github.com/ricott1/asterion"
 keywords = ["cli", "dungeon", "game"]
 categories = ["games"]
 

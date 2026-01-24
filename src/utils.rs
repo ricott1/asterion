@@ -5,7 +5,7 @@ pub type AppResult<T> = Result<T, anyhow::Error>;
 pub type PlayerId = uuid::Uuid;
 
 pub fn store_path(filename: &str) -> AppResult<PathBuf> {
-    let dirs = directories::ProjectDirs::from("org", "frittura", "minotaur")
+    let dirs = directories::ProjectDirs::from("org", "frittura", "asterion")
         .ok_or(anyhow!("Failed to get directories"))?;
     let config_dirs = dirs.config_dir();
     if !config_dirs.exists() {

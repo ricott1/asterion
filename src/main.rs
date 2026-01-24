@@ -19,7 +19,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> AppResult<()> {
-    let logfile_path = store_path("minotaur.log")?;
+    let logfile_path = store_path("asterion.log")?;
     let logfile = FileAppender::builder()
         .append(false)
         .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
