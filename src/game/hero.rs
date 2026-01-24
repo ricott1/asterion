@@ -8,14 +8,14 @@ use std::{
 use strum_macros::Display;
 
 #[derive(Debug)]
-pub enum HeroCommand {
+pub enum GameCommand {
     Move { direction: Direction },
     TurnClockwise,
     TurnCounterClockwise,
     CycleUiOptions,
 }
 
-impl HeroCommand {
+impl GameCommand {
     pub fn from_key_code(key_code: KeyCode) -> Option<Self> {
         match key_code {
             KeyCode::Char(c) => match c {
@@ -98,7 +98,7 @@ pub struct Hero {
     past_visible_positions: HashMap<usize, HashMap<Position, Instant>>,
     last_move_time: Instant,
     collected_power_ups: HashMap<usize, PowerUp>,
-    pub ui_options: UiOptions,
+    ui_options: UiOptions,
 }
 
 impl Hero {
@@ -137,6 +137,10 @@ impl Hero {
         self.past_visible_positions.clear();
         self.last_move_time = Instant::now();
         self.collected_power_ups.clear();
+    }
+
+    pub fn cycle_ui_options(&mut self) {
+        self.ui_options = self.ui_options.next();
     }
 
     pub fn is_dead(&self) -> bool {
@@ -219,7 +223,7 @@ impl Hero {
 
         available_power_ups.push(PowerUp::Memory);
 
-        let idx = rand::random::<usize>() % available_power_ups.len();
+        let idx = rand::random_range(0..available_power_ups.len());
 
         let power_up = available_power_ups[idx];
         match power_up {

@@ -1,19 +1,34 @@
-use image::Rgba;
-use rand::{rngs::ThreadRng, seq::SliceRandom, Rng};
+use image::{Pixel, Rgb, RgbImage, Rgba, RgbaImage};
+use rand::{rngs::ThreadRng, seq::IndexedRandom, Rng};
 
 pub fn to_player_name(rng: &mut ThreadRng, name: &str) -> String {
     format!(
         "{}#{:03}",
         name.chars().take(8).collect::<String>(),
-        rng.gen_range(0..1000)
+        rng.random_range(0..1000)
     )
 }
 
 pub fn random_minotaur_name() -> String {
-    MINOTAUR_NAMES
-        .choose(&mut rand::thread_rng())
-        .unwrap()
-        .to_string()
+    MINOTAUR_NAMES.choose(&mut rand::rng()).unwrap().to_string()
+}
+
+pub fn convert_rgb_to_rgba(rgb_image: &RgbImage, background: Rgb<u8>) -> RgbaImage {
+    let (width, height) = rgb_image.dimensions();
+    let mut rgba_image = RgbaImage::new(width, height);
+
+    for (x, y, rgb_pixel) in rgb_image.enumerate_pixels() {
+        let alpha = if rgb_pixel.to_rgb() == background {
+            0
+        } else {
+            255
+        };
+
+        let Rgba([r, g, b, a]) = Rgba([rgb_pixel[0], rgb_pixel[1], rgb_pixel[2], alpha]);
+        rgba_image.put_pixel(x, y, Rgba([r, g, b, a]));
+    }
+
+    rgba_image
 }
 
 pub struct GameColors {}

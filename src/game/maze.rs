@@ -1,321 +1,62 @@
 use super::{
     direction::Direction, minotaur::Minotaur, Entity, IntoDirection, Position, View, MAX_MAZE_ID,
 };
-use crate::AppResult;
-use image::{Rgba, RgbaImage};
+use crate::{game::utils::convert_rgb_to_rgba, AppResult};
+use image::{Rgb, Rgba, RgbaImage};
 use itertools::Itertools;
+use knossos::maze::{self, GrowingTree, Method};
 use rand::{
-    seq::{IteratorRandom, SliceRandom},
+    seq::{IndexedRandom, IteratorRandom},
     Rng, SeedableRng,
 };
 use rand_chacha::ChaCha8Rng;
-use std::{
-    collections::{HashMap, HashSet},
-    path::Path,
-};
-use strum::IntoEnumIterator;
-use strum_macros::{Display, EnumIter};
-
-const MAX_NUMBER_OF_WALLS: usize = 8; // We work at most in a octagone-lattice, so we have at most 8 walls.
-
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub struct Cell {
-    x: usize,
-    y: usize,
-    walls: [bool; MAX_NUMBER_OF_WALLS],
-}
-
-impl Cell {
-    fn remove_wall(&mut self, direction: Direction) {
-        self.walls[direction as usize] = false;
-    }
-
-    pub fn new(x: usize, y: usize) -> Self {
-        Self {
-            x,
-            y,
-            walls: [true; MAX_NUMBER_OF_WALLS],
-        }
-    }
-
-    pub fn x(&self) -> usize {
-        self.x
-    }
-
-    pub fn y(&self) -> usize {
-        self.y
-    }
-
-    pub fn has_wall(&self, direction: Direction) -> bool {
-        self.walls[direction as usize]
-    }
-
-    pub fn number_of_walls(&self) -> usize {
-        self.walls.iter().filter(|&w| *w).count()
-    }
-}
-
-#[derive(Debug, Clone, Copy, Display, EnumIter, PartialEq)]
-pub enum MazeGenerationAlgorithm {
-    DepthFirstSearch,
-    Wilson,
-}
-
-#[derive(Debug, Clone, Copy, Display, EnumIter, PartialEq)]
-pub enum MazeImageStyle {
-    Straight,
-    Seasaw,
-}
-
-#[derive(Debug, Clone, Copy, Display, EnumIter, PartialEq)]
-pub enum MazeTopology {
-    Orthogonal,
-    Chessboard,
-}
-
-impl MazeTopology {
-    fn number_of_linked_cells(&self) -> usize {
-        match self {
-            Self::Orthogonal => 4,
-            Self::Chessboard => 8,
-        }
-    }
-
-    pub fn available_directions(&self) -> Vec<Direction> {
-        Direction::iter()
-            .filter(|&d| (d as usize) < self.number_of_linked_cells())
-            .collect_vec()
-    }
-}
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Maze {
-    pub id: usize,
+    id: usize,
     random_seed: u64,
-    pub width: usize,
-    pub height: usize,
-    generation_algorithm: MazeGenerationAlgorithm,
-    topology: MazeTopology,
+    rng: ChaCha8Rng,
+    width: usize,
+    height: usize,
+    wall_size: usize,
+    passage_size: usize,
     image: RgbaImage,
-    image_style: MazeImageStyle,
     valid_positions: HashSet<Position>,
     entrance: Vec<Position>,
     exit: Vec<Position>,
-    pub power_up_position: Option<Position>,
-    visible_positions_cache: HashMap<(usize, usize, Direction, View), HashSet<Position>>, // (x, y, direction, type) -> visible positions
+    pub power_up_positions: Vec<Position>,
+    visible_positions_cache: HashMap<(Position, Direction, View), HashSet<Position>>, // (x, y, direction, type) -> visible positions
     success_rate: (usize, usize), //pass/attempted
 }
 
 impl Maze {
-    const CELL_SIZE: usize = 6;
-    const WALL_SIZE: usize = 2;
+    const DEFAULT_WALL_SIZE: usize = 2;
+    const DEFAULT_PASSAGE_SIZE: usize = 2;
+    const MARGIN_SIZE: usize = 0;
 
-    fn cell_image_position(&self, position: Position) -> Position {
-        // The cell position indicate the top-left corner.
-        match self.image_style {
-            MazeImageStyle::Straight => {
-                let x = position.0 * (Self::CELL_SIZE - Self::WALL_SIZE);
-                let y = position.1 * (Self::CELL_SIZE - Self::WALL_SIZE);
-                (x, y)
-            }
-            MazeImageStyle::Seasaw => {
-                let x = position.0 * (Self::CELL_SIZE - Self::WALL_SIZE)
-                    + Self::WALL_SIZE * (position.1 % 2);
-                let y = position.1 * (Self::CELL_SIZE - Self::WALL_SIZE);
-                (x, y)
-            }
-        }
-    }
-    fn generate_cells(&mut self) -> Vec<Cell> {
-        let rng = &mut ChaCha8Rng::seed_from_u64(self.random_seed);
-        let mut cells = Vec::with_capacity(self.width * self.height);
-        for y in 0..self.height {
-            for x in 0..self.width {
-                let cell = Cell::new(x, y);
-                cells.push(cell);
-            }
-        }
+    fn insert_valid_position(&mut self, position: Position) {
+        self.valid_positions.insert(position);
 
-        match self.generation_algorithm {
-            MazeGenerationAlgorithm::DepthFirstSearch => {
-                //     Randomized depth-first search
-                let mut stack = Vec::new();
-                let mut visited_cells = vec![false; cells.len()];
-
-                //     Choose the initial cell, mark it as visited and push it to the stack
-                let initial_cell_index = 0;
-
-                stack.push(initial_cell_index);
-                visited_cells[0] = true;
-                let available_directions = self.topology.available_directions();
-
-                // While the stack is not empty
-                while !stack.is_empty() {
-                    // Pop a cell from the stack and make it a current cell
-                    let current_cell_index = stack.pop().unwrap();
-                    let current_cell = cells.get_mut(current_cell_index).unwrap();
-
-                    // Get neighbours of the current cell
-
-                    let mut unvisited_neighbours = vec![];
-                    for &direction in available_directions.iter() {
-                        let (dx, dy) = direction.as_offset();
-                        let x = current_cell.x as isize + dx;
-                        let y = current_cell.y as isize + dy;
-                        if x < 0 || x >= self.width as isize || y < 0 || y >= self.height as isize {
-                            continue;
-                        }
-                        let x = x as usize;
-                        let y = y as usize;
-                        if !visited_cells[y * self.width + x] {
-                            unvisited_neighbours.push(direction);
-                        }
-                    }
-                    // If the current cell has any neighbours which have not been visited
-                    if unvisited_neighbours.len() > 0 {
-                        // Push the current cell to the stack
-                        stack.push(current_cell_index);
-                        // Choose one of the unvisited neighbours
-                        let chosen_neighbour_direction: Direction =
-                            unvisited_neighbours[rng.gen::<usize>() % unvisited_neighbours.len()];
-                        // Remove the wall between the current cell and the chosen cell
-                        let opposite = chosen_neighbour_direction.opposite();
-                        current_cell.remove_wall(chosen_neighbour_direction);
-
-                        let neighbour_index = (current_cell.y as isize
-                            + chosen_neighbour_direction.as_offset().1)
-                            as usize
-                            * self.width
-                            + (current_cell.x as isize + chosen_neighbour_direction.as_offset().0)
-                                as usize;
-                        let neighbour = cells.get_mut(neighbour_index).unwrap();
-                        neighbour.remove_wall(opposite);
-
-                        // Mark the chosen cell as visited and push it to the stack
-                        visited_cells[neighbour.y * self.width + neighbour.x] = true;
-
-                        stack.push(neighbour_index);
-                    }
-                }
-            }
-            MazeGenerationAlgorithm::Wilson => {}
-        }
-
-        cells
+        let (x, y) = position;
+        self.image
+            .put_pixel(x as u32, y as u32, Self::background_color());
     }
 
-    fn generate_maze(&mut self, cells: Vec<Cell>, entrance: Option<usize>, exit: Option<usize>) {
-        let available_directions = self.topology.available_directions();
+    fn build_entrance(&mut self) {
+        let rng = &mut self.rng;
 
-        self.valid_positions.clear();
-        for cell in cells.iter() {
-            let (x, y) = self.cell_image_position((cell.x(), cell.y()));
-
-            // If the cell has less than MAX_NUMBER_OF_WALLS walls, the 4 central pixels are empty.
-            if cell.number_of_walls() < MAX_NUMBER_OF_WALLS {
-                for dy in Self::WALL_SIZE..Self::CELL_SIZE - Self::WALL_SIZE {
-                    for dx in Self::WALL_SIZE..Self::CELL_SIZE - Self::WALL_SIZE {
-                        self.valid_positions.insert((x + dx, y + dy));
-                    }
-                }
-            }
-        }
-
-        for cell in cells.iter() {
-            let (x, y) = self.cell_image_position((cell.x(), cell.y()));
-
-            // Remove walls.
-            for &direction in available_directions.iter() {
-                if !cell.has_wall(direction) {
-                    match direction {
-                        Direction::North => {
-                            for dy in 0..Self::WALL_SIZE {
-                                for dx in Self::WALL_SIZE..Self::CELL_SIZE - Self::WALL_SIZE {
-                                    self.valid_positions.insert((x + dx, y + dy));
-                                }
-                            }
-                        }
-                        Direction::East => {
-                            for dy in Self::WALL_SIZE..Self::CELL_SIZE - Self::WALL_SIZE {
-                                for dx in
-                                    Self::CELL_SIZE - Self::WALL_SIZE..Self::CELL_SIZE as usize
-                                {
-                                    self.valid_positions.insert((x + dx, y + dy));
-                                }
-                            }
-                        }
-                        Direction::South => {
-                            for dy in Self::CELL_SIZE - Self::WALL_SIZE..Self::CELL_SIZE {
-                                for dx in Self::WALL_SIZE..Self::CELL_SIZE - Self::WALL_SIZE {
-                                    self.valid_positions.insert((x + dx, y + dy));
-                                }
-                            }
-                        }
-                        Direction::West => {
-                            for dy in Self::WALL_SIZE..Self::CELL_SIZE - Self::WALL_SIZE {
-                                for dx in 0..Self::WALL_SIZE {
-                                    self.valid_positions.insert((x + dx, y + dy));
-                                }
-                            }
-                        }
-
-                        Direction::NorthEast => {
-                            for dy in 0..Self::WALL_SIZE {
-                                for dx in Self::CELL_SIZE - Self::WALL_SIZE..Self::CELL_SIZE {
-                                    self.valid_positions.insert((x + dx, y + dy));
-                                }
-                            }
-                            self.valid_positions.insert((x + 3, y + 1));
-                            self.valid_positions.insert((x + 4, y + 2));
-                        }
-                        Direction::SouthEast => {
-                            for dy in Self::CELL_SIZE - Self::WALL_SIZE..Self::CELL_SIZE {
-                                for dx in Self::CELL_SIZE - Self::WALL_SIZE..Self::CELL_SIZE {
-                                    self.valid_positions.insert((x + dx, y + dy));
-                                }
-                            }
-                            self.valid_positions.insert((x + 3, y + 4));
-                            self.valid_positions.insert((x + 4, y + 3));
-                        }
-                        Direction::SouthWest => {
-                            for dy in Self::CELL_SIZE - Self::WALL_SIZE..Self::CELL_SIZE {
-                                for dx in 0..Self::WALL_SIZE {
-                                    self.valid_positions.insert((x + dx, y + dy));
-                                }
-                            }
-                            self.valid_positions.insert((x + 1, y + 3));
-                            self.valid_positions.insert((x + 2, y + 4));
-                        }
-                        Direction::NorthWest => {
-                            for dy in 0..Self::WALL_SIZE {
-                                for dx in 0..Self::WALL_SIZE {
-                                    self.valid_positions.insert((x + dx, y + dy));
-                                }
-                            }
-                            self.valid_positions.insert((x + 2, y + 1));
-                            self.valid_positions.insert((x + 1, y + 2));
-                        }
-                    }
-                }
-            }
-        }
-
-        let rng = &mut ChaCha8Rng::seed_from_u64(self.random_seed);
-
-        // create entrance
-        let entrance_y = if let Some(y) = entrance {
-            y
-        } else {
-            rng.gen_range(
-                Self::WALL_SIZE as usize
-                    ..self.height * (Self::CELL_SIZE - Self::WALL_SIZE) as usize
-                        - Self::WALL_SIZE as usize
-                        - 1,
-            ) / 2
-                * 2
-        };
+        let entrance_y = rng.random_range(
+            Self::MARGIN_SIZE + self.wall_size
+                ..self.image.height() as usize - Self::MARGIN_SIZE - self.wall_size - 1,
+        ) / 2
+            * 2;
         self.entrance = {
-            let starting_x = if self.id == 0 { 1 } else { 0 };
+            let starting_x = if self.id == 0 {
+                Self::MARGIN_SIZE + self.wall_size
+            } else {
+                0
+            };
             let mut x = starting_x;
             loop {
                 if self.is_valid_position((x, entrance_y))
@@ -324,31 +65,26 @@ impl Maze {
                     break;
                 }
 
-                self.valid_positions.insert((x, entrance_y));
-                self.valid_positions.insert((x, entrance_y + 1));
+                self.insert_valid_position((x, entrance_y));
+                self.insert_valid_position((x, entrance_y + 1));
 
                 x += 1;
             }
 
             vec![(starting_x, entrance_y), (starting_x, entrance_y + 1)]
         };
+    }
 
-        // create exit
-        let exit_y = if let Some(y) = exit {
-            y
-        } else {
-            rng.gen_range(
-                Self::WALL_SIZE as usize
-                    ..self.height * (Self::CELL_SIZE - Self::WALL_SIZE) as usize
-                        - Self::WALL_SIZE as usize
-                        - 1,
-            ) / 2
-                * 2
-        };
+    fn build_exit(&mut self) {
+        let rng = &mut self.rng;
+
+        let exit_y = rng.random_range(
+            Self::MARGIN_SIZE + self.wall_size
+                ..self.image.height() as usize - Self::MARGIN_SIZE - self.wall_size - 1,
+        ) / 2
+            * 2;
         self.exit = {
-            let max_x = (self.width - 1) * (Self::CELL_SIZE - Self::WALL_SIZE) as usize
-                + Self::CELL_SIZE as usize
-                + 1;
+            let max_x = self.image.width() as usize - Self::MARGIN_SIZE as usize - 1;
             let mut x = max_x;
 
             loop {
@@ -356,54 +92,59 @@ impl Maze {
                     break;
                 }
 
-                self.valid_positions.insert((x, exit_y));
-                self.valid_positions.insert((x, exit_y + 1));
+                self.insert_valid_position((x, exit_y));
+                self.insert_valid_position((x, exit_y + 1));
                 x -= 1;
             }
 
             vec![(max_x, exit_y), (max_x, exit_y + 1)]
         };
+    }
 
+    fn build_extra_rooms(&mut self) {
+        let rng = &mut self.rng;
         // Add random rooms. The number of rooms deoends on the maze size.
-        let number_of_rooms = rng.gen_range(4..=((self.width + self.height) / 2).max(5));
+        let number_of_rooms = rng.random_range(4..=((self.width + self.height) / 2).max(5));
+        let mut new_valid_positions = Vec::new();
         for _ in 0..number_of_rooms {
-            let room_width = rng.gen_range(4..=((self.width + self.height) / 6).max(5));
-            let room_height = rng.gen_range(4..=((self.width + self.height) / 6).max(5));
-            let (room_x, room_y) = self.cell_image_position((
-                rng.gen_range(
-                    Self::WALL_SIZE
-                        ..self
-                            .width
-                            .saturating_sub(room_width + Self::WALL_SIZE)
-                            .max(Self::WALL_SIZE + 1),
-                ),
-                rng.gen_range(
-                    Self::WALL_SIZE
-                        ..self
-                            .height
-                            .saturating_sub(room_height + Self::WALL_SIZE)
-                            .max(Self::WALL_SIZE + 1),
-                ),
-            ));
+            let room_width = rng.random_range(4..=((self.width + self.height) / 6).max(5));
+            let room_height = rng.random_range(4..=((self.width + self.height) / 6).max(5));
+
+            let room_x = rng.random_range(
+                Self::MARGIN_SIZE + self.wall_size
+                    ..self.image.width() as usize - room_width - Self::MARGIN_SIZE - self.wall_size,
+            );
+            let room_y = rng.random_range(
+                Self::MARGIN_SIZE + self.wall_size
+                    ..self.image.height() as usize
+                        - room_height
+                        - Self::MARGIN_SIZE
+                        - self.wall_size,
+            );
 
             for y in room_y..room_y + room_height {
                 for x in room_x..room_x + room_width {
-                    self.valid_positions.insert((x, y));
+                    new_valid_positions.push((x, y));
                 }
             }
+        }
+
+        for &position in new_valid_positions.iter() {
+            self.insert_valid_position(position);
         }
     }
 
     fn random_valid_position(&self) -> Position {
         self.valid_positions
             .iter()
-            .choose(&mut rand::thread_rng())
+            .choose(&mut rand::rng())
             .copied()
             .unwrap()
     }
 
-    fn random_valid_power_up_position(&self) -> Option<Position> {
-        self.valid_positions
+    fn set_power_up_position(&mut self, amount: usize) {
+        self.power_up_positions = self
+            .valid_positions
             .iter()
             .filter(|&&position| {
                 self.entrance
@@ -411,8 +152,10 @@ impl Maze {
                     .all(|entrance| entrance.distance(position) > 6.0)
                     && self.exit.iter().all(|exit| exit.distance(position) > 6.0)
             })
-            .choose(&mut rand::thread_rng())
+            .choose_multiple(&mut rand::rng(), amount)
+            .into_iter()
             .copied()
+            .collect_vec();
     }
 
     fn color(id: usize) -> Rgba<u8> {
@@ -428,93 +171,119 @@ impl Maze {
         ])
     }
 
-    fn entrance_color(id: usize) -> Rgba<u8> {
-        if id == 0 {
-            return Self::color(id);
-        }
-        Self::background_color()
-    }
-
-    fn exit_color(_id: usize) -> Rgba<u8> {
-        Rgba([0; 4])
+    pub fn id(&self) -> usize {
+        self.id
     }
 
     pub fn background_color() -> Rgba<u8> {
         Rgba([0; 4])
     }
 
-    pub fn random(id: usize) -> Self {
-        let random_seed = ChaCha8Rng::from_entropy().gen();
-        let rng = &mut ChaCha8Rng::seed_from_u64(random_seed);
-        let width = rng.gen_range(10 + 2 * (id / 4)..=(12 + 2 * (id / 2)).min(32));
-        let height = rng.gen_range(4 + 2 * (id / 4)..=(6 + 2 * (id / 2)).min(20));
-        let generation_algorithm = MazeGenerationAlgorithm::DepthFirstSearch;
-        let topology = MazeTopology::Orthogonal;
-        let image_style = MazeImageStyle::Straight;
-
-        Self::new(
-            id,
-            random_seed,
-            width,
-            height,
-            None,
-            None,
-            generation_algorithm,
-            topology,
-            image_style,
-        )
+    /// Sets a maze width and returns itself
+    pub const fn width(mut self, width: usize) -> Self {
+        self.width = width;
+        self
     }
 
-    pub fn new(
-        id: usize,
-        random_seed: u64,
-        width: usize,
-        height: usize,
-        entrance: Option<usize>,
-        exit: Option<usize>,
-        generation_algorithm: MazeGenerationAlgorithm,
-        topology: MazeTopology,
-        image_style: MazeImageStyle,
-    ) -> Self {
-        // Initialize empty image with maze size.
-        let image = RgbaImage::from_pixel(
-            (width * (Self::CELL_SIZE - Self::WALL_SIZE) + 2 * Self::WALL_SIZE) as u32,
-            (height * (Self::CELL_SIZE - Self::WALL_SIZE) + Self::WALL_SIZE) as u32,
-            Self::color(id),
-        );
+    /// Sets a maze height and returns itself
+    pub const fn height(mut self, height: usize) -> Self {
+        self.height = height;
+        self
+    }
 
-        let valid_positions = HashSet::new();
+    /// Sets a maze rng and returns itself
+    pub fn random_seed(mut self, random_seed: u64) -> Self {
+        self.rng = ChaCha8Rng::seed_from_u64(random_seed);
+        self
+    }
 
-        let mut maze = Self {
+    /// Sets a maze wall_size and returns itself
+    pub const fn wall_size(mut self, wall_size: usize) -> Self {
+        self.wall_size = wall_size;
+        self
+    }
+
+    /// Sets a maze passage_size and returns itself
+    pub const fn passage_size(mut self, passage_size: usize) -> Self {
+        self.passage_size = passage_size;
+        self
+    }
+
+    pub fn new(id: usize) -> Self {
+        let random_seed = ChaCha8Rng::from_os_rng().random();
+        let rng = ChaCha8Rng::seed_from_u64(random_seed);
+
+        println!("New maze {}", random_seed);
+        Self {
             id,
             random_seed,
-            width,
-            height,
-            generation_algorithm,
-            topology,
-            image,
-            image_style,
-            valid_positions,
+            rng,
+            width: 0,
+            height: 0,
+            wall_size: Self::DEFAULT_WALL_SIZE,
+            passage_size: Self::DEFAULT_PASSAGE_SIZE,
+            image: RgbaImage::new(0, 0),
+            valid_positions: HashSet::new(),
             entrance: Vec::new(),
             exit: Vec::new(),
-            power_up_position: None,
+            power_up_positions: Vec::new(),
             visible_positions_cache: HashMap::new(),
             success_rate: (0, 0),
-        };
+        }
+    }
 
-        let cells = maze.generate_cells();
-        maze.generate_maze(cells, entrance, exit);
-        maze.power_up_position = maze.random_valid_power_up_position();
-        maze.generate_image();
+    pub fn build(mut self) -> AppResult<Self> {
+        if self.width == 0 {
+            self.width = (&mut self.rng)
+                .random_range(16 + 2 * (self.id / 4)..=(20 + 2 * (self.id / 2)).min(32));
+        }
 
-        println!("Generated maze {}", maze.random_seed);
+        if self.height == 0 {
+            self.height = (&mut self.rng)
+                .random_range(4 + 2 * (self.id / 4)..=(6 + 2 * (self.id / 2)).min(20));
+        }
 
-        maze
+        let Rgba([r, g, b, _]) = Self::color(self.id);
+        let Rgba([br, bg, bb, _]) = Self::background_color();
+
+        let knossos_maze = maze::OrthogonalMazeBuilder::new()
+            .width(self.width)
+            .height(self.height)
+            .algorithm(Box::new(GrowingTree::new(Method::Newest75Random25)))
+            .seed(Some(self.random_seed))
+            .build();
+
+        let maze_image_wrapper = knossos_maze.format(
+            maze::Image::new()
+                .wall(self.wall_size)
+                .passage(self.passage_size)
+                .margin(Self::MARGIN_SIZE)
+                .background(knossos::Color::RGB(br, bg, bb))
+                .foreground(knossos::Color::RGB(r, g, b)),
+        );
+
+        self.image = convert_rgb_to_rgba(&maze_image_wrapper.into_inner(), Rgb([0; 3]));
+
+        self.valid_positions = self
+            .image
+            .enumerate_pixels()
+            .filter(|(_, _, pixel)| pixel[3] == 0)
+            .map(|(x, y, _)| (x as usize, y as usize))
+            .collect();
+
+        self.build_entrance();
+        self.build_exit();
+        self.build_extra_rooms();
+        self.set_power_up_position(self.id / 2 + 1);
+
+        self.image.save(&format!("./images/maze_{}.png", self.id))?;
+
+        Ok(self)
     }
 
     pub fn spawn_minotaur(&mut self, name: String) -> Minotaur {
         let mut position = self.random_valid_position();
-        while position.distance(self.entrance[0]) < 10.0 {
+        while !self.is_valid_minotaur_position(position) {
             position = self.random_valid_position()
         }
 
@@ -533,7 +302,7 @@ impl Maze {
         direction: Direction,
         view: View,
     ) -> HashSet<Position> {
-        let cache_key = (position.0, position.1, direction, view);
+        let cache_key = (position, direction, view);
         if let Some(visible_positions) = self.visible_positions_cache.get(&cache_key) {
             return visible_positions.clone();
         }
@@ -721,7 +490,7 @@ impl Maze {
         direction: Direction,
         view: View,
     ) -> HashSet<Position> {
-        let cache_key = (position.0, position.1, direction, view);
+        let cache_key = (position, direction, view);
         self.visible_positions_cache
             .get(&cache_key)
             .expect("Visible positions should have been cached")
@@ -733,32 +502,8 @@ impl Maze {
     }
 
     pub fn save_image(&self, name: &str) -> AppResult<()> {
-        image::save_buffer(
-            &Path::new(name),
-            &self.image,
-            self.image.width(),
-            self.image.height(),
-            image::ColorType::Rgba8,
-        )?;
+        self.image.save(name)?;
         Ok(())
-    }
-
-    pub fn generate_image(&mut self) {
-        for &(x, y) in self.valid_positions.iter() {
-            self.image.put_pixel(x as u32, y as u32, Rgba([0; 4]));
-        }
-
-        // color entrance
-        for &(x, y) in self.entrance.iter() {
-            self.image
-                .put_pixel(x as u32, y as u32, Self::entrance_color(self.id));
-        }
-
-        //color exit
-        for &(x, y) in self.exit.iter() {
-            self.image
-                .put_pixel(x as u32, y as u32, Self::exit_color(self.id));
-        }
     }
 
     pub fn is_valid_position(&self, position: Position) -> bool {
@@ -788,7 +533,7 @@ impl Maze {
     }
 
     pub fn hero_starting_position(&self) -> Position {
-        let rng = &mut rand::thread_rng();
+        let rng = &mut rand::rng();
         *self.entrance.choose(rng).unwrap()
     }
 
@@ -860,10 +605,11 @@ mod tests {
     #[test]
     fn test_random_mazes_image() -> AppResult<()> {
         for id in 0..MAX_MAZE_ID {
-            let maze = Maze::random(id);
+            let maze = Maze::new(id);
             let name = format!("images/random_{}.png", id);
             maze.save_image(&name)?;
         }
+
         Ok(())
     }
 }

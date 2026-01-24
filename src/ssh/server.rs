@@ -1,10 +1,12 @@
 use super::client::{AppClient, PlayerId};
-use crate::game::{Game, HeroCommand};
+use crate::game::{Game, GameCommand};
 use crate::ssh::TerminalEvent;
 use crate::tui::Tui;
 use crate::AppResult;
 use crossterm::event::KeyCode;
 use itertools::Either;
+use rand::Rng;
+use russh::keys::ssh_key::private::{Ed25519Keypair, Ed25519PrivateKey, KeypairData};
 use russh::server::{self};
 use russh::server::{Config, Server};
 use std::collections::HashMap;
@@ -60,11 +62,11 @@ impl AppServer {
         );
 
         let private_key = load_keys().unwrap_or_else(|_| {
-            let key = russh::keys::PrivateKey::random(
-                &mut rand::thread_rng(),
-                russh::keys::Algorithm::Ed25519,
-            )
-            .expect("Failed to generate SSH keys.");
+            let rng = &mut rand::rng();
+            let seed: [u8; Ed25519PrivateKey::BYTE_SIZE] = rng.random();
+            let key_data = KeypairData::from(Ed25519Keypair::from_seed(&seed));
+            let key = russh::keys::PrivateKey::new(key_data, "Rebels ssh server key")
+                .expect("Failed to generate SSH keys.");
 
             save_keys(&key).expect("Failed to save SSH keys.");
             key
@@ -122,7 +124,13 @@ impl AppServer {
         server_shutdown: CancellationToken,
     ) {
         task::spawn(async move {
-            let mut game = Game::new();
+            let mut game = match Game::new() {
+                Ok(g) => g,
+                Err(err) => {
+                    log::error!("Unable to spawn game: {err}");
+                    return;
+                }
+            };
             let mut update_ticker = tokio::time::interval(Game::update_time_step());
             let mut draw_ticker = tokio::time::interval(Game::draw_time_step());
 
@@ -177,7 +185,7 @@ impl AppServer {
                                     }
 
                                     code => {
-                                        if let Some(command) = HeroCommand::from_key_code(code) {
+                                        if let Some(command) = GameCommand::from_key_code(code) {
                                             game.handle_command(&command, player_id);
                                         }
                                     }
@@ -194,6 +202,7 @@ impl AppServer {
                     }
 
                     _ = server_shutdown.cancelled() => {
+                        log::info!("Shutting down game from server.");
                         break
                     }
 

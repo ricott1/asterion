@@ -13,7 +13,7 @@ pub use alarm_level::AlarmLevel;
 pub use direction::Direction;
 pub use entity::Entity;
 pub use game::{Game, MAX_MAZE_ID};
-pub use hero::{Hero, HeroCommand};
+pub use hero::{GameCommand, Hero};
 pub use maze::Maze;
 pub use power_up::PowerUp;
 pub use utils::GameColors;

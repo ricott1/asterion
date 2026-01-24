@@ -1,6 +1,6 @@
 use super::{
     entity::Entity,
-    hero::{HeroCommand, HeroState},
+    hero::{GameCommand, HeroState},
     minotaur::Minotaur,
     utils::{random_minotaur_name, to_player_name},
     AlarmLevel, GameColors, Hero, IntoDirection, Maze,
@@ -132,27 +132,28 @@ impl Game {
         Duration::from_millis(50)
     }
 
-    pub fn new() -> Self {
-        let mut mazes = (0..MAX_MAZE_ID)
-            .map(|maze_id| Maze::random(maze_id))
-            .collect_array()
-            .expect("Should create maze array");
+    pub fn new() -> AppResult<Self> {
+        let mut mazes: [Maze; MAX_MAZE_ID] = (0..MAX_MAZE_ID)
+            .map(|maze_id| Maze::new(maze_id).build())
+            .collect::<AppResult<Vec<Maze>>>()?
+            .try_into()
+            .expect("MAX_MAZE_ID mismatch");
 
         let mut minotaurs = HashMap::new();
         let mut minotaur_rooms = [const { Vec::new() }; MAX_MAZE_ID];
 
         for maze in mazes.iter_mut() {
             let mut maze_minotaurs = vec![];
-            for index in 0..maze.id {
-                let name = format!("{}#{}{}", random_minotaur_name(), maze.id, index);
+            for index in 0..maze.id() {
+                let name = format!("{}#{}{}", random_minotaur_name(), maze.id(), index);
                 let minotaur = maze.spawn_minotaur(name);
                 maze_minotaurs.push(minotaur.id());
                 minotaurs.insert(minotaur.id(), minotaur);
             }
-            minotaur_rooms[maze.id] = maze_minotaurs;
+            minotaur_rooms[maze.id()] = maze_minotaurs;
         }
 
-        Self {
+        Ok(Self {
             mazes,
             heros: HashMap::new(),
             hero_rooms: [const { Vec::new() }; MAX_MAZE_ID],
@@ -163,7 +164,7 @@ impl Game {
             minotaur_rooms,
             top_minotaurs_map: HashMap::new(),
             top_minotaurs: vec![],
-        }
+        })
     }
 
     pub fn top_heros(&self) -> &Vec<(PlayerId, String, usize, Duration)> {
@@ -210,7 +211,7 @@ impl Game {
     }
 
     pub fn add_player(&mut self, player_id: PlayerId, name: &str) {
-        let rng = &mut rand::thread_rng();
+        let rng = &mut rand::rng();
         let mut player_name = to_player_name(rng, name);
         while self.taken_names.contains(&player_name) {
             player_name = to_player_name(rng, name);
@@ -225,7 +226,7 @@ impl Game {
             maze.get_and_cache_visible_positions(hero.position(), hero.direction(), hero.view());
         hero.update_past_visible_positions(visible_positions);
 
-        self.hero_rooms[maze.id].push(hero.id());
+        self.hero_rooms[maze.id()].push(hero.id());
 
         self.top_heros_map.insert(
             hero.id(),
@@ -400,8 +401,8 @@ impl Game {
                 continue;
             }
 
-            if maze.id > 0 {
-                for (idx, c) in (maze.id + 1 - 1).to_string().chars().enumerate() {
+            if maze.id() > 0 {
+                for (idx, c) in (maze.id() + 1 - 1).to_string().chars().enumerate() {
                     override_positions.insert((x as u32 + idx as u32 + 1, y as u32), c);
                 }
                 override_positions.insert((x as u32, y as u32), '←');
@@ -413,7 +414,7 @@ impl Game {
                 continue;
             }
 
-            for (idx, c) in (maze.id + 1 + 1).to_string().chars().rev().enumerate() {
+            for (idx, c) in (maze.id() + 1 + 1).to_string().chars().rev().enumerate() {
                 override_positions.insert((x as u32 - idx as u32 - 1, y as u32), c);
             }
             override_positions.insert((x as u32, y as u32), '→');
@@ -466,7 +467,7 @@ impl Game {
             }
 
             // Add  powerup position
-            if let Some((x, y)) = maze.power_up_position {
+            for &(x, y) in maze.power_up_positions.iter() {
                 if hero.power_up_collected_in_maze().is_none()
                     && visible_positions.contains(&(x, y))
                 {
@@ -513,7 +514,7 @@ impl Game {
         return Err(anyhow!("No hero with id {}", player_id));
     }
 
-    pub fn handle_command(&mut self, command: &HeroCommand, hero_id: PlayerId) {
+    pub fn handle_command(&mut self, command: &GameCommand, hero_id: PlayerId) {
         let hero = if let Some(hero) = self.heros.get_mut(&hero_id) {
             hero
         } else {
@@ -531,7 +532,7 @@ impl Game {
             HeroState::InMaze { instant } => {
                 let maze_id = hero.maze_id();
                 match command {
-                    HeroCommand::Move { direction } => {
+                    GameCommand::Move { direction } => {
                         hero.update_past_visible_positions(
                             self.mazes[maze_id].get_and_cache_visible_positions(
                                 hero.position(),
@@ -569,7 +570,7 @@ impl Game {
                         }
 
                         hero.set_position((new_x, new_y));
-                        if let Some(position) = self.mazes[maze_id].power_up_position {
+                        for &position in self.mazes[maze_id].power_up_positions.iter() {
                             if position == hero.position()
                                 && hero.power_up_collected_in_maze().is_none()
                             {
@@ -644,7 +645,7 @@ impl Game {
                         );
                     }
 
-                    HeroCommand::TurnClockwise => {
+                    GameCommand::TurnClockwise => {
                         hero.update_past_visible_positions(
                             self.mazes[maze_id].get_and_cache_visible_positions(
                                 hero.position(),
@@ -662,7 +663,7 @@ impl Game {
                         );
                     }
 
-                    HeroCommand::TurnCounterClockwise => {
+                    GameCommand::TurnCounterClockwise => {
                         hero.update_past_visible_positions(
                             self.mazes[maze_id].get_and_cache_visible_positions(
                                 hero.position(),
@@ -680,7 +681,7 @@ impl Game {
                         );
                     }
 
-                    HeroCommand::CycleUiOptions => hero.ui_options = hero.ui_options.next(),
+                    GameCommand::CycleUiOptions => hero.cycle_ui_options(),
                 }
             }
             _ => {}
@@ -693,23 +694,23 @@ impl Game {
 #[cfg(test)]
 mod tests {
     use super::{Game, MAX_MAZE_ID};
-    use crate::{game::utils::to_player_name, PlayerId};
+    use crate::{game::utils::to_player_name, AppResult, PlayerId};
     use rand::Rng;
     use std::time::Duration;
 
     #[test]
-    fn test_top_heros() {
-        let mut game = Game::new();
+    fn test_top_heros() -> AppResult<()> {
+        let mut game = Game::new()?;
 
-        let rng = &mut rand::thread_rng();
+        let rng = &mut rand::rng();
 
         for _ in 0..100 {
             game.top_heros_map.insert(
                 PlayerId::new_v4(),
                 (
                     to_player_name(rng, "name"),
-                    rng.gen_range(0..=MAX_MAZE_ID),
-                    Duration::from_millis(rng.gen_range(15000..150000)),
+                    rng.random_range(0..=MAX_MAZE_ID),
+                    Duration::from_millis(rng.random_range(15000..150000)),
                 ),
             );
         }
@@ -721,5 +722,7 @@ mod tests {
 
             assert!(maze_id > next_maze_id || timer <= next_timer);
         }
+
+        Ok(())
     }
 }

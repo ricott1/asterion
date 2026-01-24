@@ -65,7 +65,7 @@ impl Minotaur {
             return;
         }
 
-        let rng = &mut rand::thread_rng();
+        let rng = &mut rand::rng();
         let (x, y) = self.position;
 
         let mut available_directions = [
@@ -102,7 +102,7 @@ impl Minotaur {
             }
         }
 
-        if available_directions.len() > 0 && rng.gen_bool(self.aggression) {
+        if available_directions.len() > 0 && rng.random_bool(self.aggression) {
             // Pick a random available direction
             let direction = available_directions.iter().choose(rng).unwrap();
             let new_position = (
