@@ -48,13 +48,7 @@ impl AppClient {
             .with_context(|| format!("unknown channel: {id}"))
     }
 
-    pub async fn get_tui(
-        &mut self,
-        channel_id: ChannelId,
-        handle: Handle,
-        width: u16,
-        height: u16,
-    ) -> AppResult<()> {
+    pub async fn get_tui(&mut self, channel_id: ChannelId, handle: Handle) -> AppResult<()> {
         let writer = SSHWriterProxy::new(channel_id, handle);
         let client_shutdown = CancellationToken::new();
 
@@ -70,8 +64,6 @@ impl AppClient {
         let tui = Tui::new(
             self.player_id,
             self.username.clone(),
-            width,
-            height,
             writer,
             client_shutdown,
         )?;
@@ -139,17 +131,16 @@ impl server::Handler for AppClient {
 
     async fn pty_request(
         &mut self,
-        id: ChannelId,
-        _: &str,
-        width: u32,
-        height: u32,
-        _: u32,
-        _: u32,
-        _: &[(Pty, u32)],
+        channel: ChannelId,
+        _term: &str,
+        _col_width: u32,
+        _row_height: u32,
+        _pix_width: u32,
+        _pix_height: u32,
+        _modes: &[(Pty, u32)],
         session: &mut Session,
     ) -> AppResult<()> {
-        self.get_tui(id, session.handle(), width as u16, height as u16)
-            .await?;
+        self.get_tui(channel, session.handle()).await?;
 
         Ok(())
     }

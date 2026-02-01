@@ -1,7 +1,10 @@
 use super::{
     direction::Direction, minotaur::Minotaur, Entity, IntoDirection, Position, View, MAX_MAZE_ID,
 };
-use crate::{game::utils::convert_rgb_to_rgba, AppResult};
+use crate::{
+    game::{utils::convert_rgb_to_rgba, POWER_UPS_PER_ROOM},
+    AppResult,
+};
 use image::{Rgb, Rgba, RgbaImage};
 use itertools::Itertools;
 use knossos::maze::{self, GrowingTree, Method};
@@ -142,7 +145,7 @@ impl Maze {
             .unwrap()
     }
 
-    fn set_power_up_position(&mut self, amount: usize) {
+    fn set_power_ups_position(&mut self, amount: usize) {
         self.power_up_positions = self
             .valid_positions
             .iter()
@@ -276,7 +279,7 @@ impl Maze {
         self.build_entrance();
         self.build_exit();
         self.build_extra_rooms();
-        self.set_power_up_position(self.id / 2 + 1);
+        self.set_power_ups_position(POWER_UPS_PER_ROOM);
 
         self.image.save(&format!("./images/maze_{}.png", self.id))?;
 
