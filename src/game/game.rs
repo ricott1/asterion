@@ -15,6 +15,7 @@ use std::{
 };
 
 pub const MAX_MAZE_ID: usize = 10;
+pub const POWER_UPS_PER_ROOM: usize = 3;
 
 pub struct Game {
     mazes: [Maze; MAX_MAZE_ID],
@@ -463,9 +464,9 @@ impl Game {
                 player_image.put_pixel(dx as u32, dy as u32, pixel);
             }
 
-            // Add  powerup position
+            // Add powerup position
             for &(x, y) in maze.power_up_positions.iter() {
-                if hero.power_up_collected_in_maze().is_none()
+                if !hero.power_up_collected_at(maze_id, (x, y))
                     && visible_positions.contains(&(x, y))
                 {
                     player_image.put_pixel(x as u32, y as u32, GameColors::POWER_UP);
@@ -474,13 +475,12 @@ impl Game {
 
             // Add other heros position
             for (p_id, any_hero) in self.heros.iter() {
-                if *p_id != player_id
-                    && any_hero.maze_id() == hero.maze_id() {
-                        let (ax, ay) = any_hero.position();
-                        if visible_positions.contains(&(ax, ay)) {
-                            player_image.put_pixel(ax as u32, ay as u32, GameColors::OTHER_HERO);
-                        }
+                if *p_id != player_id && any_hero.maze_id() == hero.maze_id() {
+                    let (ax, ay) = any_hero.position();
+                    if visible_positions.contains(&(ax, ay)) {
+                        player_image.put_pixel(ax as u32, ay as u32, GameColors::OTHER_HERO);
                     }
+                }
             }
 
             // Add minotaurs position
@@ -568,9 +568,9 @@ impl Game {
                         hero.set_position((new_x, new_y));
                         for &position in self.mazes[maze_id].power_up_positions.iter() {
                             if position == hero.position()
-                                && hero.power_up_collected_in_maze().is_none()
+                                && !hero.power_up_collected_at(hero.maze_id(), hero.position())
                             {
-                                hero.apply_power_up();
+                                hero.apply_random_power_up_at_position(hero.position());
                             }
                         }
 

@@ -97,7 +97,7 @@ pub struct Hero {
     memory: u64,
     past_visible_positions: HashMap<usize, HashMap<Position, Instant>>,
     last_move_time: Instant,
-    collected_power_ups: HashMap<usize, PowerUp>,
+    collected_power_ups: HashMap<usize, Vec<Position>>,
     ui_options: UiOptions,
 }
 
@@ -154,6 +154,10 @@ impl Hero {
         }
     }
 
+    pub fn memory(&self) -> u64 {
+        self.memory
+    }
+
     pub fn elapsed_duration_from_start(&self) -> Duration {
         match self.state {
             HeroState::WaitingToStart => Duration::from_millis(0),
@@ -178,10 +182,7 @@ impl Hero {
     pub fn update_past_visible_positions(&mut self, visible_positions: HashSet<Position>) {
         let duration = self.past_visibility_duration();
 
-        let past_visible_positions = self
-            .past_visible_positions
-            .entry(self.maze_id)
-            .or_default();
+        let past_visible_positions = self.past_visible_positions.entry(self.maze_id).or_default();
 
         for &position in visible_positions.iter() {
             past_visible_positions.insert(position, Instant::now());
@@ -210,7 +211,7 @@ impl Hero {
         self.vision -= 1;
     }
 
-    pub fn apply_power_up(&mut self) {
+    pub fn apply_random_power_up_at_position(&mut self, position: Position) {
         let mut available_power_ups = vec![];
 
         if self.speed < Self::MAX_SPEED {
@@ -232,11 +233,24 @@ impl Hero {
             PowerUp::Memory => self.memory += 1,
         }
 
-        self.collected_power_ups.insert(self.maze_id, power_up);
+        self.collected_power_ups
+            .entry(self.maze_id)
+            .and_modify(|e| e.push(position))
+            .or_insert(vec![position]);
     }
 
-    pub fn power_up_collected_in_maze(&self) -> Option<&PowerUp> {
-        self.collected_power_ups.get(&self.maze_id)
+    pub fn power_ups_collected_in_maze(&self, maze_id: usize) -> usize {
+        self.collected_power_ups
+            .get(&maze_id)
+            .map(|v| v.len())
+            .unwrap_or_default()
+    }
+
+    pub fn power_up_collected_at(&self, maze_id: usize, position: Position) -> bool {
+        self.collected_power_ups
+            .get(&maze_id)
+            .map(|v| v.contains(&position))
+            .unwrap_or_default()
     }
 }
 

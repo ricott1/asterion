@@ -1,7 +1,7 @@
 use super::utils::{img_to_lines, RataColor};
 use crate::{
     constants::UI_SCREEN_SIZE,
-    game::{Entity, Game, GameColors, Hero, Maze, MAX_MAZE_ID},
+    game::{Entity, Game, GameColors, Hero, Maze, MAX_MAZE_ID, POWER_UPS_PER_ROOM},
     AppResult, PlayerId,
 };
 use anyhow::anyhow;
@@ -81,7 +81,7 @@ fn title_paragraph<'a>() -> Paragraph<'a> {
             Line::from(spans)
         })
         .collect::<Vec<Line>>();
-    Paragraph::new(lines)
+    Paragraph::new(lines).centered()
 }
 
 fn format_duration(duration: &Duration) -> String {
@@ -102,35 +102,40 @@ fn render_header(frame: &mut Frame, game: &Game, hero: &Hero, area: Rect) -> App
     let number_of_players = game.number_of_players();
     let maze = game.get_maze(hero.maze_id());
 
-    let mut lines = vec![
-        Line::from(format!(
-            "There {} {} hero{} in the labyrinth...",
-            if number_of_players == 1 { "is" } else { "are" },
-            number_of_players,
-            if number_of_players == 1 { "" } else { "es" },
-        )),
-        Line::from(vec![
-            Span::styled(format!("{}  ", hero.name()), GameColors::HERO.to_color()),
-            Span::raw(format!(
-                "Room {}@{:8} - Pass rate {:.2}% - {}",
-                hero.maze_id() + 1,
-                format!("{:?}", hero.position()),
-                maze.success_rate() * 100.0,
-                format_duration(&hero.elapsed_duration_from_start())
-            )),
-        ]),
-    ];
+    let mut lines = vec![Line::from(format!(
+        "There {} {} hero{} in the labyrinth... - Game time {}",
+        if number_of_players == 1 { "is" } else { "are" },
+        number_of_players,
+        if number_of_players == 1 { "" } else { "es" },
+        format_duration(&hero.elapsed_duration_from_start()),
+    ))];
 
     let num_minotaurs = game.minotaurs_in_maze(hero.maze_id());
     let (alarm_level, min_distance_squared) = game.alarm_level(&hero.id());
     let radar_power = 16 * 16 / min_distance_squared.max(1);
     let minoradar: String = MINORADAR.iter().take(radar_power).copied().collect();
+    let collected = hero.power_ups_collected_in_maze(maze.id());
+
+    lines.push(Line::from(vec![
+        Span::styled(format!("{}  ", hero.name()), GameColors::HERO.to_color()),
+        Span::raw(format!("Vision {} ", hero.vision())),
+        Span::raw(format!("Speed {} ", hero.speed())),
+        Span::raw(format!("Memory {} ", hero.memory())),
+    ]));
 
     let mut line = vec![
         Span::raw(format!(
-            "{} minotaur{}  ",
+            "Room {}@{:8} - {} minotaur{} - Pass rate {:.2}% - {} power ups left ",
+            hero.maze_id() + 1,
+            format!("{:?}", hero.position()),
             num_minotaurs,
-            if num_minotaurs == 1 { "" } else { "s" }
+            if num_minotaurs == 1 { "" } else { "s" },
+            maze.success_rate() * 100.0,
+            if collected < POWER_UPS_PER_ROOM {
+                format!("{}", POWER_UPS_PER_ROOM - collected)
+            } else {
+                "No".to_string()
+            }
         )),
         Span::styled(
             format!("{minoradar:8} "),
@@ -145,15 +150,6 @@ fn render_header(frame: &mut Frame, game: &Game, hero: &Hero, area: Rect) -> App
         )))
     }
     lines.push(Line::from(line));
-
-    lines.push(Line::from(Span::raw(format!(
-        "Power up {}collected",
-        if let Some(power_up) = hero.power_up_collected_in_maze() {
-            format!("({power_up}) ")
-        } else {
-            "not ".to_string()
-        }
-    ))));
 
     frame.render_widget(
         Paragraph::new(lines).block(Block::bordered().border_type(BorderType::Double)),
@@ -272,23 +268,25 @@ pub fn render(
     player_id: PlayerId,
     start_instant: Instant,
 ) -> AppResult<()> {
+    let screen_area = screen_area(frame.area());
+
     if start_instant.elapsed() < Duration::from_millis(1500) {
-        frame.render_widget(title_paragraph(), frame.area().inner(Margin::new(4, 2)));
+        frame.render_widget(title_paragraph(), screen_area.inner(Margin::new(4, 2)));
         return Ok(());
     }
 
-    if frame.area().width < UI_SCREEN_SIZE.0 || frame.area().height < UI_SCREEN_SIZE.1 {
+    if screen_area.width < UI_SCREEN_SIZE.0 || screen_area.height < UI_SCREEN_SIZE.1 {
         frame.render_widget(
             Paragraph::new(format!(
                 " Frame size {}x{} is smaller than the minimum size {}x{}.\nPlease resize it or exit with 'q'.",
-                frame.area().width,
-                frame.area().height,
+                screen_area.width,
+                screen_area.height,
                 UI_SCREEN_SIZE.0,
                 UI_SCREEN_SIZE.1
             ))
             .centered()
             .wrap(Wrap { trim: true }),
-            frame.area(),
+            screen_area,
         );
         return Ok(());
     }
@@ -300,10 +298,10 @@ pub fn render(
     };
 
     let h_split =
-        Layout::horizontal([Constraint::Min(1), Constraint::Length(24)]).split(frame.area());
+        Layout::horizontal([Constraint::Fill(1), Constraint::Length(24)]).split(screen_area);
     render_sidebar(frame, game, hero, h_split[1])?;
 
-    let v_split = Layout::vertical([Constraint::Length(6), Constraint::Min(1)]).split(h_split[0]);
+    let v_split = Layout::vertical([Constraint::Length(6), Constraint::Fill(1)]).split(h_split[0]);
     render_header(frame, game, hero, v_split[0])?;
 
     let image = game.draw(player_id)?;
@@ -365,4 +363,17 @@ pub fn render(
     }
 
     Ok(())
+}
+
+fn screen_area(frame_area: Rect) -> Rect {
+    // If area is bigger than UI_SCREEN_SIZE, use a centered rect of the correct size.
+    let frame_width = frame_area.width;
+    let frame_height = frame_area.height;
+    let (target_width, target_height) = UI_SCREEN_SIZE;
+    Rect::new(
+        frame_width.saturating_sub(target_width) / 2,
+        frame_height.saturating_sub(target_height) / 2,
+        target_width.min(frame_width),
+        target_height.min(frame_height),
+    )
 }
