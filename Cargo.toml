@@ -1,6 +1,6 @@
 [package]
 name = "asterion"
-version = "0.3.3"
+version = "0.3.4"
 edition = "2021"
 authors = ["Alessandro Ricottone <ricott2@gmail.com>"]
 license = "GPL-3.0-or-later"

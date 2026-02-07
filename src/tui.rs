@@ -107,7 +107,7 @@ impl Tui {
         )?;
 
         self.terminal.backend_mut().writer_mut().send().await?;
-
+        self.terminal.backend_mut().writer_mut().exit().await;
         Ok(())
     }
 }

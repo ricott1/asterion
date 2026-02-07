@@ -68,6 +68,11 @@ impl SSHWriterProxy {
         self.flushing = false;
         Ok(data_length)
     }
+
+    pub async fn exit(&mut self) {
+        let _ = self.handle.eof(self.channel_id).await;
+        let _ = self.handle.close(self.channel_id).await;
+    }
 }
 
 #[derive(Debug)]
