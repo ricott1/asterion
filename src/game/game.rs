@@ -691,7 +691,7 @@ impl Game {
 mod tests {
     use super::{Game, MAX_MAZE_ID};
     use crate::{game::utils::to_player_name, AppResult, PlayerId};
-    use rand::Rng;
+    use rand::RngExt;
     use std::time::Duration;
 
     #[test]

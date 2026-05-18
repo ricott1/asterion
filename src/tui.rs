@@ -4,10 +4,10 @@ use crate::ssh::SSHWriterProxy;
 use crate::ui;
 use crate::AppResult;
 use crate::PlayerId;
-use crossterm::cursor::{Hide, Show};
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
-use crossterm::terminal::Clear;
-use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use ratatui::crossterm::cursor::{Hide, Show};
+use ratatui::crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+use ratatui::crossterm::terminal::Clear;
+use ratatui::crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
 use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::Terminal;
@@ -27,11 +27,11 @@ pub struct Tui {
 
 impl Tui {
     fn init(&mut self) -> AppResult<()> {
-        crossterm::execute!(
+        ratatui::crossterm::execute!(
             self.terminal.backend_mut(),
             EnterAlternateScreen,
             EnableMouseCapture,
-            Clear(crossterm::terminal::ClearType::All),
+            Clear(ratatui::crossterm::terminal::ClearType::All),
             Hide
         )?;
 
@@ -98,11 +98,11 @@ impl Tui {
     pub async fn exit(&mut self) -> AppResult<()> {
         self.client_shutdown.cancel();
 
-        crossterm::execute!(
+        ratatui::crossterm::execute!(
             self.terminal.backend_mut(),
             LeaveAlternateScreen,
             DisableMouseCapture,
-            Clear(crossterm::terminal::ClearType::All),
+            Clear(ratatui::crossterm::terminal::ClearType::All),
             Show
         )?;
 

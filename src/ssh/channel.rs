@@ -57,7 +57,10 @@ impl SSHWriterProxy {
 
         if self
             .handle
-            .data(self.channel_id, self.sink.clone().into())
+            .data(
+                self.channel_id,
+                tokio_util::bytes::Bytes::from(self.sink.clone()),
+            )
             .await
             .is_err()
         {

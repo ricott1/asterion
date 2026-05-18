@@ -1,7 +1,7 @@
 use super::{entity::Entity, Direction, Hero, IntoDirection, Maze, Position};
 use crate::PlayerId;
 use itertools::Itertools;
-use rand::{seq::IteratorRandom, Rng};
+use rand::{seq::IteratorRandom, RngExt};
 use std::time::Instant;
 
 #[derive(Debug)]

@@ -1,7 +1,8 @@
 use super::SSHEventHandler;
 use crate::AppResult;
 use anyhow::anyhow;
-use crossterm::event::KeyModifiers;
+use ratatui::crossterm;
+use ratatui::crossterm::event::KeyModifiers;
 
 fn convert_data_to_key_event(data: &[u8]) -> Option<crossterm::event::KeyEvent> {
     let key = match data {

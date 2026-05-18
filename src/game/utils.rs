@@ -1,5 +1,5 @@
 use image::{Pixel, Rgb, RgbImage, Rgba, RgbaImage};
-use rand::{rngs::ThreadRng, seq::IndexedRandom, Rng};
+use rand::{rngs::ThreadRng, seq::IndexedRandom, RngExt};
 
 pub fn to_player_name(rng: &mut ThreadRng, name: &str) -> String {
     format!(
