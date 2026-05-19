@@ -3,11 +3,11 @@ use crate::game::Game;
 use crate::ui;
 use crate::AppResult;
 use crate::PlayerId;
-use frittura_ssh_core::SSHWriterProxy;
-use ratatui::crossterm::cursor::{Hide, Show};
-use ratatui::crossterm::event::{DisableMouseCapture, EnableMouseCapture};
+use frittura_ssh_core::SshWriterProxy;
+use ratatui::crossterm::cursor::Hide;
+use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::terminal::Clear;
-use ratatui::crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use ratatui::crossterm::terminal::EnterAlternateScreen;
 use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
 use ratatui::Terminal;
@@ -20,7 +20,7 @@ pub struct Tui {
     pub id: PlayerId,
     username: String,
     start_instant: Instant,
-    terminal: Terminal<CrosstermBackend<SSHWriterProxy>>,
+    terminal: Terminal<CrosstermBackend<SshWriterProxy>>,
 }
 
 impl Tui {
@@ -39,7 +39,7 @@ impl Tui {
         self.username.as_str()
     }
 
-    pub fn new(id: PlayerId, username: String, writer: SSHWriterProxy) -> AppResult<Self> {
+    pub fn new(id: PlayerId, username: String, writer: SshWriterProxy) -> AppResult<Self> {
         let backend = CrosstermBackend::new(writer);
         let opts = TerminalOptions {
             viewport: Viewport::Fixed(Rect {
@@ -83,26 +83,8 @@ impl Tui {
         Ok(())
     }
 
-    /// Flush the alt-screen cleanup and close the SSH channel, awaited end-to-end.
+    /// Restore the terminal and close the SSH channel, awaited end-to-end.
     pub async fn close(mut self) {
-        self.write_cleanup();
         self.terminal.backend_mut().writer_mut().send_and_close().await;
-    }
-
-    fn write_cleanup(&mut self) {
-        let _ = ratatui::crossterm::execute!(
-            self.terminal.backend_mut(),
-            LeaveAlternateScreen,
-            DisableMouseCapture,
-            Clear(ratatui::crossterm::terminal::ClearType::All),
-            Show
-        );
-    }
-}
-
-impl Drop for Tui {
-    fn drop(&mut self) {
-        self.write_cleanup();
-        self.terminal.backend_mut().writer_mut().send_in_background();
     }
 }

@@ -39,10 +39,8 @@ log4rs = "1.4.0"
 rand = "0.10.1"
 rand_chacha = "0.10.0"
 ratatui = { version = "0.30.0", features = ["unstable-backend-writer"] }
-russh = "0.60.3"
 strum = "0.28.0"
 strum_macros = "0.28.0"
 tokio = "1.52.3"
-tokio-util = "0.7.18"
 uuid = { version = "1.23.1", features = ["v4"] }
 
