@@ -30,6 +30,7 @@ opt-level = 3
 anyhow = "1.0.102"
 clap = { version = "4.6.1", features = ["derive"] }
 directories = "6.0.0"
+frittura-ssh-core = "0.1"
 image = "0.25.10"
 itertools = "0.14.0"
 knossos = "1.2.0"
