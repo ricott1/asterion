@@ -1,4 +1,4 @@
-use asterion::{ssh::AppServer, store_path, AppResult};
+use asterion::{game::ssh_game::AsterionGame, store_path, AppResult};
 use clap::{ArgAction, Parser};
 use log::LevelFilter;
 use log4rs::{
@@ -36,12 +36,10 @@ async fn main() -> AppResult<()> {
     // Create images folder to store mazes if it doesn't exist
     let mut images_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     images_dir.push("images");
-
     fs::create_dir_all(&images_dir)?;
 
     let port = Args::parse().port.unwrap_or(DEFAULT_PORT);
-    let mut game_server = AppServer::new(port);
-    game_server.run().await?;
-
+    let game = AsterionGame::new();
+    frittura_ssh_core::run_server(game, port).await?;
     Ok(())
 }

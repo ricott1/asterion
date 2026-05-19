@@ -10,7 +10,7 @@ use itertools::Itertools;
 use knossos::maze::{self, GrowingTree, Method};
 use rand::{
     seq::{IndexedRandom, IteratorRandom},
-    Rng, SeedableRng,
+    RngExt, SeedableRng,
 };
 use rand_chacha::ChaCha8Rng;
 use std::collections::{HashMap, HashSet};
@@ -155,7 +155,7 @@ impl Maze {
                     .all(|entrance| entrance.distance(position) > 6.0)
                     && self.exit.iter().all(|exit| exit.distance(position) > 6.0)
             })
-            .choose_multiple(&mut rand::rng(), amount)
+            .sample(&mut rand::rng(), amount)
             .into_iter()
             .copied()
             .collect_vec();
@@ -213,7 +213,9 @@ impl Maze {
     }
 
     pub fn new(id: usize) -> Self {
-        let mut rng = ChaCha8Rng::from_os_rng();
+        // SeedableRng::from_os_rng was removed in rand 0.10; seed the maze RNG
+        // from the thread RNG instead, which itself seeds from the OS.
+        let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
         let random_seed = rng.random();
 
         println!("New maze {random_seed}");
