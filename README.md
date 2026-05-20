@@ -11,11 +11,7 @@ Find your way through an inifinite maze in this multiplayer ssh game. Beware of 
 
 ## Just try it out!
 
-Connect via SSH to try the game.
-
-```
-ssh frittura.org -p 2020
-```
+Connect via SSH to try the game `ssh frittura.org` and pick 'asterion'
 
 ## Installation
 
