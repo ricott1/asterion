@@ -170,7 +170,7 @@ fn render_sidebar(frame: &mut Frame, game: &Game, hero: &Hero, area: Rect) -> Ap
     let lines = vec![
         Line::from("←↑→↓: move"),
         Line::from("'a'/'d': rotate"),
-        Line::from("'q'/Esc: quit"),
+        Line::from("Esc: quit"),
         Line::from(""),
         Line::from(vec![
             Span::styled("██", GameColors::HERO.to_color()),

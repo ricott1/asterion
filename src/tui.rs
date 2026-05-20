@@ -3,13 +3,15 @@ use crate::game::Game;
 use crate::ui;
 use crate::AppResult;
 use crate::PlayerId;
-use frittura_ssh_core::SshWriterProxy;
+use frittura_ssh_core::{idle_warning_text, SshWriterProxy};
 use ratatui::crossterm::cursor::Hide;
 use ratatui::crossterm::event::EnableMouseCapture;
 use ratatui::crossterm::terminal::Clear;
 use ratatui::crossterm::terminal::EnterAlternateScreen;
 use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
+use ratatui::style::Style;
+use ratatui::widgets::{Block, Clear as ClearWidget, Paragraph};
 use ratatui::Terminal;
 use ratatui::TerminalOptions;
 use ratatui::Viewport;
@@ -60,10 +62,30 @@ impl Tui {
         Ok(tui)
     }
 
-    pub fn draw(&mut self, game: &Game) -> AppResult<()> {
+    pub fn draw(&mut self, game: &Game, idle_warning: Option<u32>) -> AppResult<()> {
+        let id = self.id;
+        let start = self.start_instant;
         self.terminal.draw(|frame| {
-            ui::ui::render(frame, game, self.id, self.start_instant)
-                .expect("Error while rendering game.")
+            ui::ui::render(frame, game, id, start).expect("Error while rendering game.");
+            if let Some(secs) = idle_warning {
+                let area = frame.area();
+                let banner_w: u16 = 50;
+                let banner_h: u16 = 3;
+                let banner = Rect {
+                    x: area.x + area.width.saturating_sub(banner_w) / 2,
+                    y: area.y + area.height.saturating_sub(banner_h) / 2,
+                    width: banner_w.min(area.width),
+                    height: banner_h.min(area.height),
+                };
+                frame.render_widget(ClearWidget, banner);
+                frame.render_widget(
+                    Paragraph::new(idle_warning_text(secs))
+                        .centered()
+                        .style(Style::new().red().bold())
+                        .block(Block::bordered()),
+                    banner,
+                );
+            }
         })?;
         Ok(())
     }

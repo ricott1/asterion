@@ -11,6 +11,11 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
+/// App-level idle kick, distinct from `SshGame::SERVER_INACTIVITY` (russh
+/// protocol-level connection timeout). Player gets a 10s warning before kick.
+const APP_IDLE_KICK: Duration = Duration::from_secs(60);
+const APP_IDLE_WARNING: Duration = Duration::from_secs(10);
+
 pub struct AsterionGame {
     client_sender: mpsc::Sender<Tui>,
     terminal_event_sender: mpsc::Sender<(PlayerId, TerminalEvent)>,
@@ -69,7 +74,8 @@ impl SshGame for AsterionGame {
         // Parse inbound bytes + window-changes into a single TerminalEvent
         // stream via the shared core helper, tagged with `player_id` for the
         // central task.
-        let mut events = spawn_event_converter(data_rx, resize_rx);
+        let mut events =
+            spawn_event_converter(data_rx, resize_rx, Some(APP_IDLE_KICK), Some(APP_IDLE_WARNING));
         let tev_tx = self.terminal_event_sender.clone();
         while let Some(ev) = events.recv().await {
             if tev_tx.send((player_id, ev)).await.is_err() {
