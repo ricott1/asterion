@@ -1,40 +1,39 @@
 use crate::constants::UI_SCREEN_SIZE;
 use crate::game::Game;
-use crate::ssh::SSHWriterProxy;
 use crate::ui;
 use crate::AppResult;
 use crate::PlayerId;
-use crossterm::cursor::{Hide, Show};
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture};
-use crossterm::terminal::Clear;
-use crossterm::terminal::{EnterAlternateScreen, LeaveAlternateScreen};
+use frittura_ssh_core::{idle_warning_text, SshWriterProxy};
+use ratatui::crossterm::cursor::Hide;
+use ratatui::crossterm::event::EnableMouseCapture;
+use ratatui::crossterm::terminal::Clear;
+use ratatui::crossterm::terminal::EnterAlternateScreen;
 use ratatui::layout::Rect;
 use ratatui::prelude::CrosstermBackend;
+use ratatui::style::Style;
+use ratatui::widgets::{Block, Clear as ClearWidget, Paragraph};
 use ratatui::Terminal;
 use ratatui::TerminalOptions;
 use ratatui::Viewport;
 use std::time::Instant;
-use tokio_util::sync::CancellationToken;
 
 #[derive(Debug)]
 pub struct Tui {
     pub id: PlayerId,
     username: String,
     start_instant: Instant,
-    terminal: Terminal<CrosstermBackend<SSHWriterProxy>>,
-    client_shutdown: CancellationToken,
+    terminal: Terminal<CrosstermBackend<SshWriterProxy>>,
 }
 
 impl Tui {
     fn init(&mut self) -> AppResult<()> {
-        crossterm::execute!(
+        ratatui::crossterm::execute!(
             self.terminal.backend_mut(),
             EnterAlternateScreen,
             EnableMouseCapture,
-            Clear(crossterm::terminal::ClearType::All),
+            Clear(ratatui::crossterm::terminal::ClearType::All),
             Hide
         )?;
-
         Ok(())
     }
 
@@ -42,12 +41,7 @@ impl Tui {
         self.username.as_str()
     }
 
-    pub fn new(
-        id: PlayerId,
-        username: String,
-        writer: SSHWriterProxy,
-        client_shutdown: CancellationToken,
-    ) -> AppResult<Self> {
+    pub fn new(id: PlayerId, username: String, writer: SshWriterProxy) -> AppResult<Self> {
         let backend = CrosstermBackend::new(writer);
         let opts = TerminalOptions {
             viewport: Viewport::Fixed(Rect {
@@ -57,25 +51,41 @@ impl Tui {
                 height: UI_SCREEN_SIZE.1,
             }),
         };
-
         let terminal = Terminal::with_options(backend, opts)?;
         let mut tui = Self {
             id,
             username,
             start_instant: Instant::now(),
             terminal,
-            client_shutdown,
         };
-
         tui.init()?;
-
         Ok(tui)
     }
 
-    pub fn draw(&mut self, game: &Game) -> AppResult<()> {
+    pub fn draw(&mut self, game: &Game, idle_warning: Option<u32>) -> AppResult<()> {
+        let id = self.id;
+        let start = self.start_instant;
         self.terminal.draw(|frame| {
-            ui::ui::render(frame, game, self.id, self.start_instant)
-                .expect("Error while rendering game.")
+            ui::ui::render(frame, game, id, start).expect("Error while rendering game.");
+            if let Some(secs) = idle_warning {
+                let area = frame.area();
+                let banner_w: u16 = 50;
+                let banner_h: u16 = 3;
+                let banner = Rect {
+                    x: area.x + area.width.saturating_sub(banner_w) / 2,
+                    y: area.y + area.height.saturating_sub(banner_h) / 2,
+                    width: banner_w.min(area.width),
+                    height: banner_h.min(area.height),
+                };
+                frame.render_widget(ClearWidget, banner);
+                frame.render_widget(
+                    Paragraph::new(idle_warning_text(secs))
+                        .centered()
+                        .style(Style::new().red().bold())
+                        .block(Block::bordered()),
+                    banner,
+                );
+            }
         })?;
         Ok(())
     }
@@ -95,19 +105,8 @@ impl Tui {
         Ok(())
     }
 
-    pub async fn exit(&mut self) -> AppResult<()> {
-        self.client_shutdown.cancel();
-
-        crossterm::execute!(
-            self.terminal.backend_mut(),
-            LeaveAlternateScreen,
-            DisableMouseCapture,
-            Clear(crossterm::terminal::ClearType::All),
-            Show
-        )?;
-
-        self.terminal.backend_mut().writer_mut().send().await?;
-        self.terminal.backend_mut().writer_mut().exit().await;
-        Ok(())
+    /// Restore the terminal and close the SSH channel, awaited end-to-end.
+    pub async fn close(mut self) {
+        self.terminal.backend_mut().writer_mut().send_and_close().await;
     }
 }

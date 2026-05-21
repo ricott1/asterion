@@ -1,6 +1,5 @@
 mod constants;
 pub mod game;
-pub mod ssh;
 mod tui;
 pub mod ui;
 mod utils;

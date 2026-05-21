@@ -1,11 +1,14 @@
 mod alarm_level;
 mod direction;
 mod entity;
+#[allow(clippy::module_inception)]
 mod game;
 mod hero;
 mod maze;
 mod minotaur;
 mod power_up;
+pub(crate) mod server_loop;
+pub mod ssh_game;
 mod utils;
 mod view;
 

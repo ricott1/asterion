@@ -1,6 +1,6 @@
 use super::{entity::Entity, power_up::PowerUp, Direction, Position};
 use crate::PlayerId;
-use crossterm::event::KeyCode;
+use ratatui::crossterm::event::KeyCode;
 use std::{
     collections::{HashMap, HashSet},
     time::{Duration, Instant},
