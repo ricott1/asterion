@@ -19,7 +19,7 @@ pub use hero::{GameCommand, Hero};
 pub use maze::Maze;
 pub use minotaur::Minotaur;
 pub use power_up::PowerUp;
-pub use utils::{GameColors, PlayerId};
+pub use utils::{GameColors, PlayerId, MAX_USERNAME_LEN};
 pub use view::View;
 
 pub type Position = (usize, usize);
