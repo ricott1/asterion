@@ -1,4 +1,4 @@
-use asterion::{game::ssh_game::AsterionGame, store_path, AppResult};
+use asterion::{ssh_game::AsterionGame, store_path, AppResult};
 use clap::{ArgAction, Parser};
 use log::LevelFilter;
 use log4rs::{

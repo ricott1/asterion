@@ -1,14 +1,13 @@
+//! Pure game logic for asterion - data and rules with no I/O, UI, or SSH.
+
 mod alarm_level;
 mod direction;
 mod entity;
-#[allow(clippy::module_inception)]
 mod game;
 mod hero;
 mod maze;
 mod minotaur;
 mod power_up;
-pub(crate) mod server_loop;
-pub mod ssh_game;
 mod utils;
 mod view;
 
@@ -18,8 +17,9 @@ pub use entity::Entity;
 pub use game::{Game, MAX_MAZE_ID, POWER_UPS_PER_ROOM};
 pub use hero::{GameCommand, Hero};
 pub use maze::Maze;
+pub use minotaur::Minotaur;
 pub use power_up::PowerUp;
-pub use utils::GameColors;
+pub use utils::{GameColors, PlayerId};
 pub use view::View;
 
 pub type Position = (usize, usize);

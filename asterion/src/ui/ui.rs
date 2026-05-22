@@ -1,9 +1,6 @@
 use super::utils::{img_to_lines, RataColor};
-use crate::{
-    constants::UI_SCREEN_SIZE,
-    game::{Entity, Game, GameColors, Hero, Maze, MAX_MAZE_ID, POWER_UPS_PER_ROOM},
-    AppResult, PlayerId,
-};
+use crate::{constants::UI_SCREEN_SIZE, AppResult, PlayerId};
+use asterion_core::{Entity, Game, GameColors, Hero, Maze, MAX_MAZE_ID, POWER_UPS_PER_ROOM};
 use anyhow::anyhow;
 use itertools::Itertools;
 use ratatui::{

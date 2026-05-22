@@ -1,6 +1,4 @@
-use crate::PlayerId;
-
-use super::{Direction, Position, View};
+use crate::{Direction, PlayerId, Position, View};
 use std::time::Duration;
 
 pub trait Entity {

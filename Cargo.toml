@@ -1,15 +1,6 @@
-[package]
-name = "asterion"
-version = "0.3.5"
-edition = "2021"
-authors = ["Alessandro Ricottone <ricott2@gmail.com>"]
-license = "GPL-3.0-or-later"
-description = "Find your way out of a dangeroussh labyrinth"
-readme = "README.md"
-homepage = "https://github.com/ricott1/asterion"
-repository = "https://github.com/ricott1/asterion"
-keywords = ["cli", "dungeon", "game"]
-categories = ["games"]
+[workspace]
+resolver = "2"
+members = ["asterion-core", "asterion"]
 
 [profile.release]
 strip = true
@@ -18,29 +9,8 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 
-# Enable a small amount of optimization in debug mode
 [profile.dev]
 opt-level = 1
 
-# Enable high optimizations for dependencies, but not for our code:
 [profile.dev.package."*"]
 opt-level = 3
-
-[dependencies]
-anyhow = "1.0.102"
-clap = { version = "4.6.1", features = ["derive"] }
-directories = "6.0.0"
-frittura-ssh-core = "0.2.0"
-image = "0.25.10"
-itertools = "0.14.0"
-knossos = "1.2.0"
-log = "0.4.29"
-log4rs = "1.4.0"
-rand = "0.10.1"
-rand_chacha = "0.10.0"
-ratatui = { version = "0.30.0", features = ["unstable-backend-writer"] }
-strum = "0.28.0"
-strum_macros = "0.28.0"
-tokio = "1.52.3"
-uuid = { version = "1.23.1", features = ["v4"] }
-

@@ -1,5 +1,4 @@
-use super::{entity::Entity, Direction, Hero, IntoDirection, Maze, Position};
-use crate::PlayerId;
+use crate::{entity::Entity, Direction, Hero, IntoDirection, Maze, PlayerId, Position};
 use itertools::Itertools;
 use rand::{seq::IteratorRandom, RngExt};
 use std::time::Instant;
