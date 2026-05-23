@@ -1,8 +1,8 @@
 use crate::constants::UI_SCREEN_SIZE;
-use crate::game::Game;
 use crate::ui;
 use crate::AppResult;
 use crate::PlayerId;
+use asterion_core::Game;
 use frittura_ssh_core::{idle_warning_text, SshWriterProxy};
 use ratatui::crossterm::cursor::Hide;
 use ratatui::crossterm::event::EnableMouseCapture;

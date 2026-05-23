@@ -2,7 +2,7 @@
 //! game task. Each new SSH session gets a fresh `PlayerId` (UUID) - asterion
 //! is stateless per session and doesn't validate credentials.
 
-use crate::game::server_loop;
+use crate::server_loop;
 use crate::tui::Tui;
 use crate::PlayerId;
 use frittura_ssh_core::{spawn_event_converter, Credential, SshGame, SshSession, TerminalEvent};

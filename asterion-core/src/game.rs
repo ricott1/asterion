@@ -1,12 +1,11 @@
-use super::{
+use crate::{
     entity::Entity,
     hero::{GameCommand, HeroState},
     minotaur::Minotaur,
-    utils::{random_minotaur_name, to_player_name},
-    AlarmLevel, GameColors, Hero, IntoDirection, Maze,
+    utils::{is_transparent, random_minotaur_name, to_player_name},
+    AlarmLevel, GameColors, Hero, IntoDirection, Maze, PlayerId,
 };
-use crate::{ui::utils::RataColor, AppResult, PlayerId};
-use anyhow::anyhow;
+use anyhow::{anyhow, Result as AppResult};
 use image::{Rgba, RgbaImage};
 use itertools::Itertools;
 use std::{
@@ -387,9 +386,10 @@ impl Game {
         let mut override_positions = visible_positions
             .iter()
             .filter(|(x, y)| {
-                image
-                    .get_pixel(*x as u32, *y as u32)
-                    .is_transparent(Maze::background_color())
+                is_transparent(
+                    image.get_pixel(*x as u32, *y as u32),
+                    &Maze::background_color(),
+                )
             })
             .map(|&(x, y)| ((x as u32, y as u32), '·'))
             .collect::<HashMap<(u32, u32), char>>();

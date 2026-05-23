@@ -1,9 +1,10 @@
 //! Centralized game-task that owns the `Game` (mazes, heroes, minotaurs)
 //! and routes per-player input to it.
 
-use crate::game::{Game, GameCommand};
+use crate::input::key_to_command;
 use crate::tui::Tui;
 use crate::PlayerId;
+use asterion_core::Game;
 use frittura_ssh_core::TerminalEvent;
 use ratatui::crossterm::event::KeyCode;
 use std::collections::HashMap;
@@ -64,7 +65,7 @@ pub fn spawn(
                             idle_warnings.remove(&player_id);
                             if key_event.code == KeyCode::Esc {
                                 remove_player(&mut game, &mut tuis, &mut idle_warnings, player_id).await;
-                            } else if let Some(command) = GameCommand::from_key_code(key_event.code) {
+                            } else if let Some(command) = key_to_command(key_event.code) {
                                 game.handle_command(&command, player_id);
                             }
                         }

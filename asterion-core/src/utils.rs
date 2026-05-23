@@ -1,10 +1,19 @@
 use image::{Pixel, Rgb, RgbImage, Rgba, RgbaImage};
 use rand::{rngs::ThreadRng, seq::IndexedRandom, RngExt};
 
+pub type PlayerId = uuid::Uuid;
+
+#[inline]
+pub fn is_transparent(pixel: &Rgba<u8>, background: &Rgba<u8>) -> bool {
+    pixel[3] == 0 || pixel.to_rgb() == background.to_rgb()
+}
+
+pub const MAX_USERNAME_LEN: usize = 12;
+
 pub fn to_player_name(rng: &mut ThreadRng, name: &str) -> String {
     format!(
         "{}#{:03}",
-        name.chars().take(8).collect::<String>(),
+        name.chars().take(MAX_USERNAME_LEN).collect::<String>(),
         rng.random_range(0..1000)
     )
 }

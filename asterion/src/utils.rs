@@ -2,7 +2,6 @@ use anyhow::anyhow;
 use std::path::PathBuf;
 
 pub type AppResult<T> = Result<T, anyhow::Error>;
-pub type PlayerId = uuid::Uuid;
 
 pub fn store_path(filename: &str) -> AppResult<PathBuf> {
     let dirs = directories::ProjectDirs::from("org", "frittura", "asterion")

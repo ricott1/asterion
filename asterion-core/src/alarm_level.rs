@@ -1,4 +1,4 @@
-use super::GameColors;
+use crate::GameColors;
 use image::Rgba;
 use strum_macros::Display;
 

@@ -1,6 +1,4 @@
-use super::{entity::Entity, power_up::PowerUp, Direction, Position};
-use crate::PlayerId;
-use ratatui::crossterm::event::KeyCode;
+use crate::{entity::Entity, power_up::PowerUp, Direction, PlayerId, Position};
 use std::{
     collections::{HashMap, HashSet},
     time::{Duration, Instant},
@@ -13,45 +11,6 @@ pub enum GameCommand {
     TurnClockwise,
     TurnCounterClockwise,
     CycleUiOptions,
-}
-
-impl GameCommand {
-    pub fn from_key_code(key_code: KeyCode) -> Option<Self> {
-        match key_code {
-            KeyCode::Char(c) => match c {
-                'a' => Some(Self::TurnCounterClockwise),
-                'd' => Some(Self::TurnClockwise),
-                'w' => Some(Self::CycleUiOptions),
-
-                'h' => Some(Self::Move {
-                    direction: Direction::West,
-                }),
-                'j' => Some(Self::Move {
-                    direction: Direction::South,
-                }),
-                'k' => Some(Self::Move {
-                    direction: Direction::North,
-                }),
-                'l' => Some(Self::Move {
-                    direction: Direction::East,
-                }),
-                _ => None,
-            },
-            KeyCode::Up => Some(Self::Move {
-                direction: Direction::North,
-            }),
-            KeyCode::Down => Some(Self::Move {
-                direction: Direction::South,
-            }),
-            KeyCode::Left => Some(Self::Move {
-                direction: Direction::West,
-            }),
-            KeyCode::Right => Some(Self::Move {
-                direction: Direction::East,
-            }),
-            _ => None,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, Display, PartialEq)]
