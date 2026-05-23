@@ -12,7 +12,7 @@ keywords = ["cli", "dungeon", "game"]
 categories = ["games"]
 
 [dependencies]
-asterion-core = { path = "../asterion-core", version = "0.1.0" }
+asterion-core = "0.1.0"
 anyhow = "1.0.102"
 clap = { version = "4.6.1", features = ["derive"] }
 directories = "6.0.0"
