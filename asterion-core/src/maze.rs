@@ -216,7 +216,7 @@ impl Maze {
         let mut rng = ChaCha8Rng::from_rng(&mut rand::rng());
         let random_seed = rng.random();
 
-        println!("New maze {random_seed}");
+        log::debug!("new maze seed {random_seed}");
         Self {
             id,
             random_seed,
