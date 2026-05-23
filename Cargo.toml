@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["asterion-core", "asterion"]
+members = ["crates/asterion-core", "crates/asterion"]
 
 [profile.release]
 strip = true
